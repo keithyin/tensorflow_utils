@@ -2,15 +2,17 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 
-def dcn(x, num_layers):
+def dcn(x, num_layers, name_or_scope=None, reuse=False):
     """
     :param x: 2d tensor, [b, dim]
     :param num_layers: int
+    :param name_or_scope: name
+    :param reuse: reuse or not
     """
-    with tf.variable_scope(name_or_scope=None, default_name="dcn"):
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="dcn", reuse=reuse):
+        x0 = tf.expand_dims(x, dim=2)
         for i in range(num_layers):
             # [b, n, 1] * [b, 1, n] = [b, n, n]
-            a = tf.expand_dims(x, dim=2)
             b = tf.expand_dims(x, dim=1)
             w_l = tf.get_variable("w_l_{}".format(i), shape=[1, x.shape[1], 1],
                                   initializer=tf.initializers.glorot_normal)
@@ -19,7 +21,30 @@ def dcn(x, num_layers):
                                   initializer=tf.initializers.zeros)
             # [b, n, 1] * [b, 1, n] = [b, n, n]
             # [b, n, n] * [b, n, 1] = [b, n, 1] --> b, n
-            x = tf.squeeze(tf.matmul(tf.matmul(a, b), w_l), axis=2) + b_l + x
+            x = tf.squeeze(tf.matmul(tf.matmul(x0, b), w_l), axis=2) + b_l + x
+    return x
+
+
+def dcn_faster(x, num_layers, name_or_scope=None, reuse=False):
+    """
+        :param x: 2d tensor, [b, dim]
+        :param num_layers: int
+        :param name_or_scope: string
+        :param reuse: reuse param or not
+        """
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="dcn", reuse=reuse):
+        x0 = tf.expand_dims(x, dim=2)
+        for i in range(num_layers):
+            # [b, n, 1] * [b, 1, n] = [b, n, n]
+            b = tf.expand_dims(x, dim=1)
+            w_l = tf.get_variable("w_l_{}".format(i), shape=[1, x.shape[1], 1],
+                                  initializer=tf.initializers.glorot_normal)
+            w_l = tf.tile(w_l, multiples=[tf.shape(x)[0], 1, 1])
+            b_l = tf.get_variable("b_l_{}".format(i), shape=[1, x.shape[1]],
+                                  initializer=tf.initializers.zeros)
+            # [b, n, 1] * [b, 1, n] = [b, n, n]
+            # [b, n, n] * [b, n, 1] = [b, n, 1] --> b, n
+            x = tf.squeeze(tf.matmul(x0, tf.matmul(b, w_l)), axis=2) + b_l + x
     return x
 
 
@@ -115,12 +140,10 @@ def mlp(x, hidden_sizes, activation=tf.nn.relu, use_bias=True):
 if __name__ == '__main__':
     x = tf.random.normal(shape=[1, 3])
     x_ori = tf.identity(x)
-    x = dcn(x, 5)
-    # x = dcn(x, 1)
-    # x = dcn_m(x, 1)
-    # x = dcn_m_low_rank(x, 1, 10)
-    # x = dcn_m_moe(x, 3, num_experts=4, dim=10)
+    x1 = dcn(x, 5, name_or_scope="dcn")
+    x2 = dcn_faster(x, 5, name_or_scope="dcn", reuse=True)
+
     with tf.Session() as sess:
         print(list(tf.global_variables()))
         sess.run(tf.global_variables_initializer())
-        print(sess.run([x_ori, x]))
+        print(sess.run([x1, x2]))
