@@ -335,13 +335,13 @@ class RegressionHook(session_run_hook.SessionRunHook):
             tot_ins = float(tot_ins)
             info = "RegressionMetrics: {}, global_step: {}, inner_step: {}, tot_ins: {}, " \
                    "mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f}\n".format(
-                    self._name,
-                    self._last_global_step,
-                    self._inner_step,
-                    int(tot_ins),
-                    tot_bias / tot_ins,
-                    tot_mae / tot_ins,
-                    tot_mse / tot_ins)
+                self._name,
+                self._last_global_step,
+                self._inner_step,
+                int(tot_ins),
+                tot_bias / tot_ins,
+                tot_mae / tot_ins,
+                tot_mse / tot_ins)
             group_infos = sorted(list(self._group_infos.items()), key=lambda x: x[1].num_ins, reverse=True)
             group_info_fmt = "group: {}, num_ins: {}, pct: {:.4f}%, " \
                              "mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f}\n"
@@ -356,7 +356,7 @@ class RegressionHook(session_run_hook.SessionRunHook):
                 tot_mse = group_info[1].tot_mse
                 group_msg = group_info_fmt.format(
                     group_name, int(num_ins), num_ins / tot_ins * 100,
-                    tot_bias / num_ins, tot_mae / num_ins, tot_mse / num_ins)
+                                              tot_bias / num_ins, tot_mae / num_ins, tot_mse / num_ins)
                 info += group_msg
 
             tf.logging.info(info)
