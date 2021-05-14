@@ -154,6 +154,10 @@ class InputConfig(object):
     def field_name(field):
         return field[u"name"]
 
+    @staticmethod
+    def pad_val(field):
+        return None if u"pad_val" not in field else field[u"pad_val"]
+
 
 class NetInputHelper(object):
     def __init__(self, emb_config):
@@ -161,13 +165,14 @@ class NetInputHelper(object):
         :param emb_config: toml config file path
         """
         self._emb_config = emb_config
-        self._embeddings = None
+        self._embeddings = {}
+        self._build_embeddings()
 
-    def build_embeddings(self):
+    def _build_embeddings(self):
         """
         at the beginning the neural network, we need to build the embeddings which we will use after.
         """
-        assert self._embeddings is None, "NetInputHelper object can't call this method twice"
+        assert len(self._embeddings) == 0, "NetInputHelper object can't call this method twice"
 
         with tf.variable_scope(name_or_scope=None, default_name="NetInputHelperEmb"):
             if self._emb_config is None or u"groups" not in self._emb_config:
@@ -186,17 +191,20 @@ class NetInputHelper(object):
                     self._embeddings[name] = layers.Embedding(input_dim=num_fea_values, output_dim=emb_size)
 
     def get_embeddings(self):
-        assert self._embeddings is not None, "call build_embedding() first"
+        assert len(self._embeddings) > 0, "call build_embedding() first"
         return self._embeddings
 
     def build_input_emb(self, features, feature_config, process_hooks=None):
         """
         id -> embedding, and then concat different field together.
+        iterate `features`, and get corresponding config in `feature_config`
+        pop field from `features` if you don't want that field present in the input embedding
+
         :param features: the feature part of parsed_example.
         :param feature_config: feature config
         :param process_hooks:
         """
-        assert self._embeddings is not None, "call build_embeddings first"
+        assert len(self._embeddings) > 0, "call build_embeddings first"
         input_tensors = []
         # some feature may not go into this function, so we iterator features instead of config[u"feature"][u"fields"]
         # assure the order
@@ -216,6 +224,7 @@ class NetInputHelper(object):
             var_len = InputConfig.is_var_len_field(field)
             num_sub_field = InputConfig.num_sub_field(field)
             emb_group = InputConfig.emb_group(field)
+
             if emb_group is not None:
                 assert emb_group in self._embeddings.keys(), "emb_group: '{}' not found in embedding settings".format(
                     emb_group)
@@ -260,16 +269,62 @@ class NetInputHelper(object):
         do not forget to run the update ops.!!!!!
         :param show_clicks: batch sample's show_clk info [[1, 0], [1, 1], ...]
         """
-        assert self._embeddings is not None, "call build embeddings first"
+        assert len(self._embeddings) > 0, "call build embeddings first"
         for k, emb in self._embeddings.items():
             if isinstance(emb, ContinuousValueModel):
                 update_op = emb.update_show_clk(show_clicks)
                 tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, update_op)
+
+    def build_single_field_var_len_input_emb(self, features, feature_config, process_hook=None):
+        """
+        different from the build_input_emb.
+        def build_input_emb(self):
+            1. for multiple fields
+            2. use mean pooling for var len field
+        def build_single_field_var_len_input_emb(self):
+            1. for single fields
+            2. just lookup, no other process for emb
+        :param features:
+        :param feature_config:
+        :param process_hook: signature def process_hook(emb, mask) -> (emb, mask)
+        """
+        assert isinstance(features, dict)
+        assert len(features) == 1, "only support single field"
+        field_name = list(features.keys())[0]
+        field = InputConfig.get_field_by_name(feature_config, field_name)
+        assert InputConfig.is_var_len_field(field), "field:{} must be var len field".format(field_name)
+
+        emb_group_name = InputConfig.emb_group(field)
+        assert emb_group_name is not None, "no emb_group for field:{}".format(field_name)
+
+        emb_layer = self._embeddings.get(emb_group_name, None)
+        assert emb_layer is not None, "{} not found in {}".format(emb_group_name, self._embeddings)
+
+        pad_val = InputConfig.pad_val(field)
+        assert pad_val is not None, "pad_val not found in field:{}".format(field_name)
+
+        emb, mask = input_layer_utils.FeaProcessor.var_len_fea_lookup(
+            inp=features[field_name],
+            pad_val=pad_val,
+            fea_num=InputConfig.num_sub_field(field),
+            emb_layer=emb_layer)
+
+        emb, mask = process_hook(emb, mask) if process_hook is not None else (emb, mask)
+
+        return emb, mask
 
 
 if __name__ == '__main__':
     input_cfg = InputConfig("src/input_layer/input_layer.toml")
     example_desc = input_cfg.build_train_example_feature_description()
     serving_input = input_cfg.build_serving_input_receiver()
-    print(example_desc)
-    print(serving_input)
+    # print(example_desc)
+    # print(serving_input)
+
+    net_input_helper = NetInputHelper(input_cfg.get_emb_config())
+    features = {
+        "second_cat_jd_num_sg": tf.constant([[1, 2, 3, 0, 0], [3, 4, 0, 0, 0]], dtype=tf.int64)
+    }
+    emb, mask = net_input_helper.build_single_field_var_len_input_emb(
+        features, input_cfg.get_feature_config())
+    print(emb, mask)

@@ -14,7 +14,9 @@ class FeaProcessor(object):
         :param lookup_table:
         :param emb_layer:
         :param pad_val: pad value of var len
-        :return: [b, T, *]
+        :return: tuple: (inp, mask)
+            inp: fea_num = 1 -> [b, T, emb_size], fea_num > 1 -> [b, T, fea_num, emb_size]
+            mask: fea_num = 1 -> [b, T], fea_num > 1 -> [b, T, fea_num]
         """
         if isinstance(inp, sparse_tensor.SparseTensor):
             inp = tf.sparse.to_dense(inp, default_value=pad_val)
