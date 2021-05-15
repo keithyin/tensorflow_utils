@@ -88,7 +88,7 @@ class GroupAucHook(session_run_hook.SessionRunHook):
     def __init__(self, name, group_tensor, label_tensor, pred_tensor,
                  log_step=1e8, num_buckets=10240, reset_step=None, message_pusher=None):
 
-        tf.logging.info("GroupAucHook, name: {}, group_tensor: {}, label_tensor: {}, pred_tensor: {}".format(
+        tf.logging.debug("GroupAucHook, name: {}, group_tensor: {}, label_tensor: {}, pred_tensor: {}".format(
             name, group_tensor, label_tensor, pred_tensor
         ))
         assert len(group_tensor.shape) == len(label_tensor.shape)

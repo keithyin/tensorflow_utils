@@ -212,8 +212,8 @@ class NetInputHelper(object):
         feature_items = [(feature_name, ori_feature)
                          for feature_name, ori_feature in feature_items if feature_name != "dimensions"]
 
-        tf.logging.info("build_input_emb: feature_items: {}".format(feature_items))
-        tf.logging.info("build_input_emb: feature_config: {}".format(feature_config))
+        tf.logging.debug("build_input_emb: feature_items: {}".format(feature_items))
+        tf.logging.debug("build_input_emb: feature_config: {}".format(feature_config))
 
         for feature_name, ori_feature in feature_items:
             field = InputConfig.get_field_by_name(feature_config, feature_name)
@@ -247,7 +247,7 @@ class NetInputHelper(object):
 
             if process_hooks is not None and name in process_hooks:
                 tensor_val = process_hooks[name](tensor_val)
-            tf.logging.info("feature_name:{}, before:{}, after:{}".format(
+            tf.logging.debug("feature_name:{}, before:{}, after:{}".format(
                 feature_name,
                 ori_feature,
                 tensor_val))
@@ -255,12 +255,12 @@ class NetInputHelper(object):
             input_tensors.append(tensor_val)
 
         assert len(input_tensors) > 0, ""
-        tf.logging.info("input_embeddings: {}".format(input_tensors))
+        tf.logging.debug("input_embeddings: {}".format(input_tensors))
         if len(input_tensors) == 1:
             inp = input_tensors[0]
         else:
             inp = tf.concat(input_tensors, axis=1)
-        tf.logging.info("model input: {}".format(inp))
+        tf.logging.debug("model input: {}".format(inp))
         return inp
 
     def build_cvm_update_op(self, show_clicks):
