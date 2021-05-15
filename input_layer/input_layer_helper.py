@@ -310,8 +310,27 @@ class NetInputHelper(object):
             emb_layer=emb_layer)
 
         emb, mask = process_hook(emb, mask) if process_hook is not None else (emb, mask)
-
         return emb, mask
+
+    @staticmethod
+    def get_feature_from_feature_dict(feature_dict, names, keep=False):
+        """
+        do not modify origin feature_dict
+        :param feature_dict: {"name": tensor, "name2": tensor}
+        :param names: string list, feature name of interest
+        :param keep: bool
+        :return: (feat_of_interest_dict, feature_dict)
+        """
+        feature_dict = feature_dict.copy()
+        assert isinstance(names, list)
+        names = set(names)
+        result = {}
+        for name in names:
+            assert name in feature_dict, "key:{} not in dict:{}".format(name, feature_dict)
+            result[name] = feature_dict[name]
+            if not keep:
+                del feature_dict[name]
+        return result, feature_dict
 
 
 if __name__ == '__main__':
@@ -328,3 +347,7 @@ if __name__ == '__main__':
     emb, mask = net_input_helper.build_single_field_var_len_input_emb(
         features, input_cfg.get_feature_config())
     print(emb, mask)
+
+    print(NetInputHelper.get_feature_from_feature_dict(features, names=["second_cat_jd_num_sg"], keep=False))
+    print(features)
+
