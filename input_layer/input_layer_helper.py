@@ -158,6 +158,10 @@ class InputConfig(object):
     def pad_val(field):
         return None if u"pad_val" not in field else field[u"pad_val"]
 
+    @staticmethod
+    def use_hash_emd_table(emb_group):
+        return False if u"use_hash_emb_table" not in emb_group else emb_group[u"use_hash_emb_table"]
+
 
 class NetInputHelper(object):
     def __init__(self, emb_config):
@@ -185,10 +189,22 @@ class NetInputHelper(object):
                 if name in self._embeddings:
                     raise ValueError("duplicated embedding group name '{}'".format(name))
                 if u"use_cvm" in group and group[u"use_cvm"]:
-                    self._embeddings[name] = ContinuousValueModel(name=name, input_dim=num_fea_values,
-                                                                  output_dim=emb_size)
+                    raise ValueError("has bug yet")
+                    # self._embeddings[name] = ContinuousValueModel(name=name, input_dim=num_fea_values,
+                    #                                               output_dim=emb_size)
                 else:
-                    self._embeddings[name] = layers.Embedding(input_dim=num_fea_values, output_dim=emb_size)
+                    if InputConfig.use_hash_emd_table(group):
+                        from tensorflow.contrib.lookup.lookup_ops import get_mutable_dense_hashtable
+                        self._embeddings[name] = get_mutable_dense_hashtable(
+                            key_dtype=tf.int64,
+                            value_dtype=tf.float32,
+                            shape=tf.TensorShape([emb_size]),
+                            name="{}_emb_layer".format(name),
+                            initializer=tf.truncated_normal_initializer(
+                                0.0, 1e-2),
+                            shard_num=4)
+                    else:
+                        self._embeddings[name] = layers.Embedding(input_dim=num_fea_values, output_dim=emb_size)
 
     def get_embeddings(self):
         assert len(self._embeddings) > 0, "call build_embedding() first"
@@ -350,4 +366,3 @@ if __name__ == '__main__':
 
     print(NetInputHelper.get_feature_from_feature_dict(features, names=["second_cat_jd_num_sg"], keep=False))
     print(features)
-
