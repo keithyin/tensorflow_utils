@@ -86,6 +86,8 @@ class InputConfig(object):
 
         for field in self._feature_config[u"fields"]:
             name = field[u"name"]
+            if name == u"dimensions":
+                continue
             tot_length = 1 if u"tot_length" not in field else field[u"tot_length"]
             dtype = field[u"dtype"]
             if name in feed_dict:
@@ -157,6 +159,10 @@ class InputConfig(object):
     @staticmethod
     def pad_val(field):
         return None if u"pad_val" not in field else field[u"pad_val"]
+
+    @staticmethod
+    def should_ignore(field):
+        return False if u"ignore" not in field else field[u"ignore"]
 
     @staticmethod
     def use_hash_emd_table(emb_group):
@@ -236,6 +242,8 @@ class NetInputHelper(object):
             if field is None:
                 tf.logging.warn("feature_name: {}, not found in self._feature_config, make sure it is expected")
                 continue
+            if InputConfig.should_ignore(field):
+                continue
             name = InputConfig.field_name(field)
             var_len = InputConfig.is_var_len_field(field)
             num_sub_field = InputConfig.num_sub_field(field)
@@ -259,7 +267,7 @@ class NetInputHelper(object):
                         lookup_table=None,
                         emb_layer=emb_layer)
             else:
-                continue
+                tensor_val = ori_feature
 
             if process_hooks is not None and name in process_hooks:
                 tensor_val = process_hooks[name](tensor_val)
