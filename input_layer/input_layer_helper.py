@@ -161,6 +161,44 @@ class InputConfig(object):
         return None if u"pad_val" not in field else field[u"pad_val"]
 
     @staticmethod
+    def dims(field):
+        return field[u"tot_length"]
+
+    @staticmethod
+    def remained_dims(field):
+        """
+        :param field:
+        :return: None means no skipped dims, seems weird
+        """
+        field_name = InputConfig.field_name(field)
+        tot_dims = InputConfig.dims(field)
+        sub_fields = InputConfig.num_sub_field(field)
+        all_skipped_dims = []
+        if u"skipped_dims" in field:
+            skipped_dims = list(map(int, field[u"skipped_dims"].split(",")))
+            if sub_fields == 1:
+                assert len(skipped_dims) == 1, """if sub_fields == 1, len(skipped_dims) must be 1,
+                                                but got sub_fields={}, len(skipped_dims)={}
+                                                """.format(sub_fields, len(skipped_dims))
+                all_skipped_dims = skipped_dims
+            else:
+                for dim in skipped_dims:
+                    while dim < tot_dims:
+                        all_skipped_dims.append(dim)
+                        dim += sub_fields
+        all_skipped_dims = set(all_skipped_dims)
+        tf.logging.info("field_name:{}, skipped_feature_dims:{}".format(field_name, all_skipped_dims))
+        remained_dims_result = []
+        for i in range(0, tot_dims):
+            if i in all_skipped_dims:
+                continue
+            remained_dims_result.append(i)
+        assert len(remained_dims_result) == (tot_dims - len(all_skipped_dims)), """
+        len(remained_dims_result)={}, tot_dims - len(all_skipped_dims)={}""".format(
+            len(remained_dims_result), tot_dims - len(all_skipped_dims))
+        return remained_dims_result
+
+    @staticmethod
     def should_ignore(field):
         return False if u"ignore" not in field else field[u"ignore"]
 
@@ -255,7 +293,8 @@ class NetInputHelper(object):
             var_len = InputConfig.is_var_len_field(field)
             num_sub_field = InputConfig.num_sub_field(field)
             emb_group = InputConfig.emb_group(field)
-
+            # filter unwanted sub fields
+            ori_feature = NetInputHelper.get_input_fea_of_interest(field, ori_feature)
             if emb_group is not None:
                 assert emb_group in self._embeddings.keys(), "emb_group: '{}' not found in embedding settings".format(
                     emb_group)
@@ -364,6 +403,17 @@ class NetInputHelper(object):
             if not keep:
                 del feature_dict[name]
         return result, feature_dict
+
+    @staticmethod
+    def get_input_fea_of_interest(field, ori_feature):
+        remained_dims = InputConfig.remained_dims(field)
+        if len(remained_dims) == 0:
+            return None
+        if len(remained_dims) == InputConfig.dims(field):
+            return ori_feature
+
+        ori_feature = tf.gather(ori_feature, indices=tf.constant(remained_dims), axis=1)
+        return ori_feature
 
 
 if __name__ == '__main__':
