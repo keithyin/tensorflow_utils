@@ -27,7 +27,12 @@ class FeaProcessor(object):
         if lookup_table is not None:
             inp = lookup_table.lookup(inp)
         if emb_layer is not None:
-            inp = emb_layer(inp)
+            assert not isinstance(emb_layer, tf.keras.layers.Embedding), "don't support keras"
+
+            if isinstance(emb_layer, list):
+                inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp)
+            else:
+                inp = tf.nn.embedding_lookup(emb_layer, inp)
         return inp, mask
 
     @staticmethod
@@ -39,7 +44,13 @@ class FeaProcessor(object):
         if lookup_table is not None:
             inp = lookup_table.lookup(inp)
         if emb_layer is not None:
-            inp = emb_layer(inp)
+            assert not isinstance(emb_layer, tf.keras.layers.Embedding), "don't support keras"
+
+            if isinstance(emb_layer, list) and isinstance(emb_layer[0],
+                                                          tf.python.ops.lookup_ops.MutableDenseHashTableV2):
+                inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp)
+            else:
+                inp = tf.nn.embedding_lookup(emb_layer, inp)
         return inp
 
     @staticmethod

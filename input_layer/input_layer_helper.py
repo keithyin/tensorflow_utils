@@ -190,7 +190,7 @@ class NetInputHelper(object):
             self._embeddings = {}
             for group in self._emb_config[u"groups"]:
                 name = group[u"name"]
-                num_fea_values = group[u"num_fea_values"]
+                num_fea_values = None if u"num_fea_values" not in group else group[u"num_fea_values"]
                 emb_size = group[u"emb_size"]
                 if name in self._embeddings:
                     raise ValueError("duplicated embedding group name '{}'".format(name))
@@ -210,7 +210,10 @@ class NetInputHelper(object):
                                 0.0, 1e-2),
                             shard_num=4)
                     else:
-                        self._embeddings[name] = layers.Embedding(input_dim=num_fea_values, output_dim=emb_size)
+                        self._embeddings[name] = tf.get_variable(
+                            name=name, shape=[num_fea_values, emb_size],
+                            dtype=tf.float32,
+                            initializer=tf.initializers.random_uniform)
 
     def get_embeddings(self):
         assert len(self._embeddings) > 0, "call build_embedding() first"
@@ -240,7 +243,11 @@ class NetInputHelper(object):
         for feature_name, ori_feature in feature_items:
             field = InputConfig.get_field_by_name(feature_config, feature_name)
             if field is None:
-                tf.logging.warn("feature_name: {}, not found in self._feature_config, make sure it is expected")
+                tf.logging.warn(
+                    """feature_name: {}, not found in self._feature_config.
+                    feature items may contain label. so this warning information might be triggered.
+                    """.format(
+                        feature_name))
                 continue
             if InputConfig.should_ignore(field):
                 continue

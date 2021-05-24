@@ -116,7 +116,11 @@ def dcn_m_moe(x, num_layers, num_experts, gate_func_units_list=[1], g_func=tf.nn
                 b_l = tf.get_variable("b_l_{}_expert_{}".format(i, j), shape=[1, x0.shape[1]],
                                       initializer=tf.initializers.zeros)
                 x_ = x0 * g_func(tf.matmul(g_func(tf.matmul(x_l, v_l)), u_l)) + b_l
-                experts.append(layers.Dense(units=1, activation=tf.sigmoid)(mlp(x_l, gate_func_units_list[:-1])) * x_)
+                tf.layers.dense(inputs=mlp(x_l, gate_func_units_list[:-1]) * x_,
+                                units=1, activation=tf.sigmoid)
+                experts.append(tf.layers.dense(
+                    inputs=mlp(x_l, gate_func_units_list[:-1]) * x_,
+                    units=1, activation=tf.sigmoid))
             x_l = sum(experts) + x_l
     return x_l
 
@@ -133,7 +137,7 @@ def mlp(x, hidden_sizes, activation=tf.nn.relu, use_bias=True):
     assert isinstance(hidden_sizes, list), "hidden_sizes must be list"
     with tf.variable_scope("mlp"):
         for units in hidden_sizes:
-            x = layers.Dense(units=units, activation=activation, use_bias=use_bias)(x)
+            x = tf.layers.dense(x, units=units, activation=activation, use_bias=use_bias)
     return x
 
 
