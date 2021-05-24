@@ -3,8 +3,8 @@
 from __future__ import print_function
 import toml
 import tensorflow as tf
-from tensorflow.keras import layers
 from ..utils import input_layer as input_layer_utils
+from ..utils.utils import dict_2_str
 from ..net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
 
@@ -230,7 +230,7 @@ class NetInputHelper(object):
         :param process_hooks:
         """
         assert len(self._embeddings) > 0, "call build_embeddings first"
-        input_tensors = []
+        input_tensors = {}
         # some feature may not go into this function, so we iterator features instead of config[u"feature"][u"fields"]
         # assure the order
         feature_items = sorted(list(features.items()), key=lambda x: x[0])
@@ -267,7 +267,7 @@ class NetInputHelper(object):
                         fea_num=num_sub_field,
                         lookup_table=None,
                         emb_layer=emb_layer)
-                    tensor_val = tf.reshape(tensor_val, shape=[-1, np.prod(tensor_val.shape[1:])])
+                    tensor_val = tf.reshape(tensor_val, shape=[-1, np.prod(tensor_val.shape[1:])], name=name)
                 else:
                     tensor_val = input_layer_utils.FeaProcessor.fix_len_fea_process(
                         ori_feature,
@@ -283,15 +283,17 @@ class NetInputHelper(object):
                 ori_feature,
                 tensor_val))
 
-            input_tensors.append(tensor_val)
+            input_tensors[name] = tensor_val
 
         assert len(input_tensors) > 0, ""
-        tf.logging.debug("input_embeddings: {}".format(input_tensors))
+        feature_items = sorted(list(input_tensors.items()), key=lambda x: x[0])
+        tf.logging.info("build_input_emb, input embeddings = \n{}".format(
+            "\n".join(["{} ---> {}".format(name, tensor) for name , tensor in feature_items])))
         if len(input_tensors) == 1:
-            inp = input_tensors[0]
+            inp = tf.identity(feature_items[0][1], name="build_input_emb.input_embedding")
         else:
-            inp = tf.concat(input_tensors, axis=1)
-        tf.logging.debug("model input: {}".format(inp))
+            inp = tf.concat([emb for _, emb in feature_items], axis=1, name="build_input_emb.input_embedding")
+        tf.logging.info("build_input_emb={}".format(inp))
         return inp
 
     def build_cvm_update_op(self, show_clicks):
