@@ -7,7 +7,7 @@
 #   num_sub_field=10            utils.input_layer.FeaProcessor.var_len_fea_process(fea_num=num_sub_field)
 #   pad_val=0                   the val pad var_len_feature to fixed_len_feature
 #   emb_group="coupon_info_emb_layer"  name of embedding_groups,
-#   skipped_dims = "1,2,3" or "start:end:step". used for remove the sub fields of the field ; TODO!!
+#   skipped_dims = "1,2,3" or "start:end:step". used for remove the sub fields of the field ;
 
 # [[embedding.groups]]
 #   name="drug_third_cat_emb_layer": corresponding to feature.fields.emb_group

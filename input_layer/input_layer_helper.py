@@ -16,6 +16,118 @@ dtype_map = {
 }
 
 
+class FeatureFieldCfg(object):
+    def __init__(self, field):
+        """
+        :param field: dict parsed from toml
+        """
+        assert isinstance(field, dict)
+        self._field = field
+        self._var_len_field = False
+        self._num_sub_field = 1
+        self._emb_group_name = None
+        self._field_name = None
+        self._pad_val = None
+        self._tot_length = None
+        self._remain_dims = None
+        self._should_ignore = None
+        pass
+
+    def _parse_field_dict(self):
+        self._var_len_field = FeatureFieldCfg.is_var_len_field(field=self._field)
+        self._num_sub_field = FeatureFieldCfg.num_sub_field(field=self._field)
+        self._emb_group_name = FeatureFieldCfg.emb_group(self._field)
+        self._field = FeatureFieldCfg.field_name(self._field)
+        self._pad_val = FeatureFieldCfg.pad_val(self._field)
+        self._tot_length = FeatureFieldCfg.dims(self._field)
+        self._remain_dims = FeatureFieldCfg.remained_dims(self._field)
+        self._should_ignore = FeatureFieldCfg.should_ignore(self._field)
+
+    @staticmethod
+    def is_var_len_field(field):
+        return True if u"pad_val" in field else False
+
+    @staticmethod
+    def num_sub_field(field):
+        return 1 if u"num_sub_field" not in field else field[u"num_sub_field"]
+
+    @staticmethod
+    def emb_group(field):
+        return None if u"emb_group" not in field else field[u"emb_group"]
+
+    @staticmethod
+    def field_name(field):
+        return field[u"name"]
+
+    @staticmethod
+    def pad_val(field):
+        return None if u"pad_val" not in field else field[u"pad_val"]
+
+    @staticmethod
+    def dims(field):
+        return field[u"tot_length"]
+
+    @staticmethod
+    def remained_dims(field):
+        """
+        :param field:
+        :return: None means no skipped dims, seems weird
+        """
+        field_name = InputConfig.field_name(field)
+        tot_dims = InputConfig.dims(field)
+        sub_fields = InputConfig.num_sub_field(field)
+        all_skipped_dims = []
+        if u"skipped_dims" in field:
+            skipped_dims = list(map(int, field[u"skipped_dims"].split(",")))
+            if sub_fields == 1:
+                assert len(skipped_dims) == 1, """if sub_fields == 1, len(skipped_dims) must be 1,
+                                                    but got sub_fields={}, len(skipped_dims)={}
+                                                    """.format(sub_fields, len(skipped_dims))
+                all_skipped_dims = skipped_dims
+            else:
+                for dim in skipped_dims:
+                    while dim < tot_dims:
+                        all_skipped_dims.append(dim)
+                        dim += sub_fields
+        all_skipped_dims = set(all_skipped_dims)
+        tf.logging.info("field_name:{}, skipped_feature_dims:{}".format(field_name, all_skipped_dims))
+        remained_dims_result = []
+        for i in range(0, tot_dims):
+            if i in all_skipped_dims:
+                continue
+            remained_dims_result.append(i)
+        assert len(remained_dims_result) == (tot_dims - len(all_skipped_dims)), """
+            len(remained_dims_result)={}, tot_dims - len(all_skipped_dims)={}""".format(
+            len(remained_dims_result), tot_dims - len(all_skipped_dims))
+        return remained_dims_result
+
+    @staticmethod
+    def should_ignore(field):
+        return False if u"ignore" not in field else field[u"ignore"]
+
+
+class LabelFieldCfg(object):
+    def __init__(self, field):
+        self._field = field
+        self._field_name = None
+        self._fake_input_field = False
+
+    def _parse_field_dict(self):
+        self._field_name = FeatureFieldCfg.field_name(field=self._field)
+        self._fake_input_field = LabelFieldCfg.is_fake_input_field(self._field)
+
+    @staticmethod
+    def is_fake_input_field(field):
+        if u"as_fake_input" in field and field[u"as_fake_input"] is True:
+            return True
+        return False
+
+
+class EmbGroupCfg(object):
+    def __init__(self):
+        pass
+
+
 class InputConfig(object):
     def __init__(self, config_file):
         """
