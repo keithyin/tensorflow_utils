@@ -33,7 +33,7 @@ def split_to_feature_dict(name, feature_tensor):
     num_sub_fields = feature_tensor.shape[1]
     fea_dict = {}
     for i in range(num_sub_fields):
-        fea_dict["{}_{}".format(name, i)] = feature_tensor[:, i:i + 1]
+        fea_dict["{}_idx_{}".format(name, i)] = feature_tensor[:, i:i + 1]
     return fea_dict
 
 

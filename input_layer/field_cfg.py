@@ -3,6 +3,7 @@ from __future__ import print_function
 import toml
 import tensorflow as tf
 from tensorflow import feature_column
+from collections import namedtuple
 
 DTYPE_MAP = {
     u"int64": tf.int64,
@@ -10,6 +11,8 @@ DTYPE_MAP = {
     u"string": tf.string,
     u"float64": tf.float64
 }
+
+CrossFeaInfo = namedtuple("CrossFeaInfo", ["feature_name", "feature_idx", "feature_name_idx"])
 
 
 class FeatureFieldCfg(object):
@@ -43,6 +46,10 @@ class FeatureFieldCfg(object):
 
     def set_emb_cfg(self, emb_cfg):
         self._emb_cfg = emb_cfg
+
+    @property
+    def parents(self):
+        return self._parents
 
     @property
     def emb_cfg(self):
@@ -108,21 +115,18 @@ class FeatureFieldCfg(object):
         return self._should_ignore
 
     def _parse_field_dict(self):
-        try:
-            self._var_len_field = FeatureFieldCfg.parse_is_var_len_field(field=self._field)
-            self._num_sub_field = FeatureFieldCfg.parse_num_sub_field(field=self._field)
-            self._emb_group_name = FeatureFieldCfg.parse_emb_group(self._field)
-            self._field_name = FeatureFieldCfg.parse_field_name(self._field)
-            self._pad_val = FeatureFieldCfg.parse_pad_val(self._field)
-            self._tot_length = FeatureFieldCfg.parse_dims(self._field)
-            self._remain_dims = FeatureFieldCfg.parse_remained_dims(self._field)
-            self._should_ignore = FeatureFieldCfg.parse_should_ignore(self._field)
-            self._dtype = FeatureFieldCfg.parse_dtype(field=self._field)
-            self._boundaries = FeatureFieldCfg.parse_boundaries(self._field)
-            self._fea_col_type = FeatureFieldCfg.parse_fea_col_type(self._field)
-            self._parents = FeatureFieldCfg.parse_parents_features(self._field)
-        except Exception as e:
-            raise ValueError("{}, \n field:{}".format(e, self._field))
+        self._var_len_field = FeatureFieldCfg.parse_is_var_len_field(field=self._field)
+        self._num_sub_field = FeatureFieldCfg.parse_num_sub_field(field=self._field)
+        self._emb_group_name = FeatureFieldCfg.parse_emb_group(self._field)
+        self._field_name = FeatureFieldCfg.parse_field_name(self._field)
+        self._pad_val = FeatureFieldCfg.parse_pad_val(self._field)
+        self._tot_length = FeatureFieldCfg.parse_dims(self._field)
+        self._remain_dims = FeatureFieldCfg.parse_remained_dims(self._field)
+        self._should_ignore = FeatureFieldCfg.parse_should_ignore(self._field)
+        self._dtype = FeatureFieldCfg.parse_dtype(field=self._field)
+        self._boundaries = FeatureFieldCfg.parse_boundaries(self._field)
+        self._fea_col_type = FeatureFieldCfg.parse_fea_col_type(self._field)
+        self._parents = FeatureFieldCfg.parse_parents_features(self._field)
 
     def _is_valid_cfg(self):
         if self.boundaries is not None:
@@ -252,16 +256,21 @@ class FeatureFieldCfg(object):
     def parse_parents_features(field):
         if u'parents_features' not in field:
             return None
-        items = map(str.strip, field[u'parents_features'].split(","))
+        items = map(str.strip, field[u'parents_features'].encode('utf8').split(","))
         parents = []
         for item in items:
-            fea_name, fea_idx = item.split(":")
-            if fea_idx == '':
-                fea_idx = 0
-            else:
-                fea_idx = int(fea_idx)
+            sub_items = item.split(":")
+            fea_name = sub_items[0]
+            fea_idx = 0
+            if len(sub_items) > 1:
+                fea_idx = sub_items[1]
             # we build {'${fea_name}_idx_${fea_idx}': tensor} manually
-            parents.append([fea_name, fea_idx, "{}_idx_{}".format(fea_name, fea_idx)])
+            if len(sub_items) == 1:
+                parents.append(CrossFeaInfo(feature_name=fea_name, feature_idx=fea_idx, feature_name_idx=fea_name))
+            else:
+                parents.append(CrossFeaInfo(feature_name=fea_name,
+                                            feature_idx=fea_idx,
+                                            feature_name_idx="{}_idx_{}".format(fea_name, fea_idx)))
         return parents
 
 
