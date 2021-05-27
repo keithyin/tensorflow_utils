@@ -2,6 +2,7 @@
 from __future__ import print_function
 import toml
 import tensorflow as tf
+from tensorflow import feature_column
 
 DTYPE_MAP = {
     u"int64": tf.int64,
@@ -31,8 +32,26 @@ class FeatureFieldCfg(object):
         self._should_ignore = None
         self._dtype = None
         self._boundaries = None
+        self._fea_col_type = None
+        self._fea_col = None
+        self._parents = None  # crossed column parents
         self._parse_field_dict()
         self._is_valid_cfg()
+
+        # this is used for populate feature_column, for hash feature column, _emb_cfg.num_fea_values is needed.
+        self._emb_cfg = None
+
+    def set_emb_cfg(self, emb_cfg):
+        self._emb_cfg = emb_cfg
+
+    @property
+    def emb_cfg(self):
+        assert self._emb_cfg is not None, "emb_cfg not set yet"
+        return self._emb_cfg
+
+    @property
+    def fea_col(self):
+        return self._fea_col
 
     @property
     def num_sub_field_after_skip(self):
@@ -100,12 +119,56 @@ class FeatureFieldCfg(object):
             self._should_ignore = FeatureFieldCfg.parse_should_ignore(self._field)
             self._dtype = FeatureFieldCfg.parse_dtype(field=self._field)
             self._boundaries = FeatureFieldCfg.parse_boundaries(self._field)
+            self._fea_col_type = FeatureFieldCfg.parse_fea_col_type(self._field)
+            self._parents = FeatureFieldCfg.parse_parents_features(self._field)
         except Exception as e:
             raise ValueError("{}, \n field:{}".format(e, self._field))
 
     def _is_valid_cfg(self):
         if self.boundaries is not None:
             assert self.tot_length == 1
+
+    def populate_fea_col_obj(self):
+        # TODO:::::
+        if self._fea_col_type == "bucketized_column":
+            assert self.boundaries is not None
+            self._fea_col = feature_column.bucketized_column(self.field_name, boundaries=self.boundaries)
+        elif self._fea_col_type == "categorical_column_with_hash_bucket":
+            assert isinstance(self._emb_cfg, EmbGroupCfg)
+            self._fea_col = feature_column.categorical_column_with_hash_bucket(
+                self.field_name, hash_bucket_size=self._emb_cfg.num_fea_values, dtype=self.dtype)
+
+        elif self._fea_col_type == "categorical_column_with_identity":
+            self._fea_col = feature_column.categorical_column_with_identity(self.field_name,
+                                                                            num_buckets=self._emb_cfg.num_fea_values,
+                                                                            default_value=None)
+
+        elif self._fea_col_type == "numeric_column":
+            self._fea_col = feature_column.numeric_column(self.field_name, dtype=self.dtype)
+
+        elif self._fea_col_type == "sequence_categorical_column_with_hash_bucket":
+            self._fea_col = feature_column.sequence_categorical_column_with_hash_bucket(self.field_name,
+                                                                                        self._emb_cfg.num_fea_values,
+                                                                                        dtype=self.dtype)
+        elif self._fea_col_type == "sequence_categorical_column_with_identity":
+            self._fea_col = feature_column.sequence_categorical_column_with_identity(self.field_name,
+                                                                                     self._emb_cfg.num_fea_values,
+                                                                                     default_value=None)
+
+        elif self._fea_col_type == "sequence_numeric_column":
+            self._fea_col = feature_column.sequence_numeric_column(self.field_name)
+
+        elif self._fea_col_type == "crossed_column":
+            assert self._parents is not None
+            parents_fea_names = [p[2] for p in self._parents]
+            hash_bucket_size = 0 if self._emb_cfg.num_fea_values is None else self._emb_cfg.num_fea_values
+            if hash_bucket_size == 0:
+                assert self._emb_cfg.use_hash_emb_table, ""
+            self._fea_col = feature_column.crossed_column(parents_fea_names, hash_bucket_size)
+        else:
+            raise ValueError("fea_col_type:{} is invalid".format(self._fea_col_type))
+
+        return self._fea_col
 
     @staticmethod
     def parse_is_var_len_field(field):
@@ -180,6 +243,26 @@ class FeatureFieldCfg(object):
             return boundaries
         boundaries = list(map(float, map(str.strip, boundaries.split(","))))
         return boundaries
+
+    @staticmethod
+    def parse_fea_col_type(field):
+        return None if u'fea_col_type' not in field else field[u'fea_col_type']
+
+    @staticmethod
+    def parse_parents_features(field):
+        if u'parents_features' not in field:
+            return None
+        items = map(str.strip, field[u'parents_features'].split(","))
+        parents = []
+        for item in items:
+            fea_name, fea_idx = item.split(":")
+            if fea_idx == '':
+                fea_idx = 0
+            else:
+                fea_idx = int(fea_idx)
+            # we build {'${fea_name}_idx_${fea_idx}': tensor} manually
+            parents.append([fea_name, fea_idx, "{}_idx_{}".format(fea_name, fea_idx)])
+        return parents
 
 
 class LabelFieldCfg(object):

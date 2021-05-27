@@ -4,7 +4,7 @@ from __future__ import print_function
 import toml
 import tensorflow as tf
 from ..utils import input_layer as input_layer_utils
-from tensorflow.python import math_ops
+from ..utils.utils import dict_2_str
 from ..net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
 from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg
@@ -55,9 +55,9 @@ class InputConfig(object):
         :param record: the result of tf.io.parse_single_example or tf.io.parse_example
         """
         if self._feature_desc is None:
-            self._feature_desc = self._build_feature_description(self._feature_config, False)
+            self._feature_desc = self._build_feature_description(self._feature_config)
         if self._label_desc is None:
-            self._label_desc = self._build_feature_description(self._label_config, True)
+            self._label_desc = self._build_feature_description(self._label_config)
 
         features_dict = {}
         labels_dict = {}
@@ -204,68 +204,19 @@ class NetInputHelper(object):
         tf.logging.debug("build_input_emb: feature_items: {}".format(feature_items))
         tf.logging.debug("build_input_emb: feature_config: {}".format(feature_config))
 
-        for feature_name, ori_feature in feature_items:
-            field = InputConfig.get_field_by_name(feature_config, feature_name)
-
-            if field is None:
-                tf.logging.warn(
-                    """feature_name: {}, not found in self._feature_config.
-                    feature items may contain label. so this warning information might be triggered.
-                    """.format(
-                        feature_name))
-                continue
+        feature_cols = {}
+        for field in feature_config:
             field = FeatureFieldCfg(field)
+            field_name = field.field_name
             if field.should_ignore:
                 continue
-            var_len = field.var_len_field
-            emb_group = field.emb_group_name
-
-            # filter unwanted sub fields
-            ori_feature = NetInputHelper.get_input_fea_of_interest(field, ori_feature)
             if field.boundaries is not None:
-                ori_feature = math_ops._bucketize(ori_feature, field.boundaries,
-                                                  name="bucketize_{}".format(field.field_name))
-            if emb_group is not None:
-                assert emb_group in self._embeddings.keys(), "emb_group: '{}' not found in embedding settings".format(
-                    emb_group)
-
-                emb_layer = self._embeddings.get(emb_group)
-                if var_len:
-                    tensor_val = input_layer_utils.FeaProcessor.var_len_fea_process(
-                        ori_feature,
-                        fea_num=field.num_sub_field_after_skip,
-                        lookup_table=None,
-                        emb_layer=emb_layer)
-
-                    tensor_val = tf.reshape(
-                        tensor_val, shape=[-1, np.prod(tensor_val.shape[1:])], name=field.field_name)
-                else:
-                    tensor_val = input_layer_utils.FeaProcessor.fix_len_fea_process(
-                        ori_feature,
-                        lookup_table=None,
-                        emb_layer=emb_layer)
+                feature_cols[field_name] = tf.feature_column.bucketized_column(
+                    field_name, boundaries=field.boundaries)
             else:
+                pass
 
-                tensor_val = ori_feature
 
-            if process_hooks is not None and field.field_name in process_hooks:
-                tensor_val = process_hooks[field.field_name](tensor_val)
-            tf.logging.debug("feature_name:{}, before:{}, after:{}".format(
-                feature_name,
-                ori_feature,
-                tensor_val))
-
-            input_tensors[field.field_name] = tensor_val
-
-        assert len(input_tensors) > 0, ""
-        feature_items = sorted(list(input_tensors.items()), key=lambda x: x[0])
-        tf.logging.info("build_input_emb, input embeddings = \n{}".format(
-            "\n".join(["{} ---> {}".format(name, tensor) for name , tensor in feature_items])))
-        if len(input_tensors) == 1:
-            inp = tf.identity(feature_items[0][1], name="build_input_emb.input_embedding")
-        else:
-            inp = tf.concat([emb for _, emb in feature_items], axis=1, name="build_input_emb.input_embedding")
-        tf.logging.info("build_input_emb={}".format(inp))
         return inp
 
     def build_cvm_update_op(self, show_clicks):
@@ -353,7 +304,7 @@ class NetInputHelper(object):
 
 
 if __name__ == '__main__':
-    input_cfg = InputConfig("src/tensorflow_utils/input_layer/input_layer.toml")
+    input_cfg = InputConfig("src/input_layer/input_layer.toml")
     example_desc = input_cfg.build_train_example_feature_description()
     serving_input = input_cfg.build_serving_input_receiver()
     # print(example_desc)
@@ -361,13 +312,11 @@ if __name__ == '__main__':
 
     net_input_helper = NetInputHelper(input_cfg.get_emb_config())
     features = {
-        "prices": tf.constant([[2.0], [1.9]], dtype=tf.float32)
+        "second_cat_jd_num_sg": tf.constant([[1, 2, 3, 0, 0], [3, 4, 0, 0, 0]], dtype=tf.int64)
     }
-    # emb, mask = net_input_helper.build_single_field_var_len_input_emb(
-    #     features, input_cfg.get_feature_config())
-    # print(emb, mask)
+    emb, mask = net_input_helper.build_single_field_var_len_input_emb(
+        features, input_cfg.get_feature_config())
+    print(emb, mask)
 
-    res = net_input_helper.build_input_emb(features, input_cfg.get_feature_config())
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        print(sess.run(res))
+    print(NetInputHelper.pop_feature_from_feature_dict(features, names=["second_cat_jd_num_sg"], keep=False))
+    print(features)

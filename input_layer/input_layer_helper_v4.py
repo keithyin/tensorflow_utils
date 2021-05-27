@@ -223,8 +223,7 @@ class NetInputHelper(object):
             # filter unwanted sub fields
             ori_feature = NetInputHelper.get_input_fea_of_interest(field, ori_feature)
             if field.boundaries is not None:
-                ori_feature = math_ops._bucketize(ori_feature, field.boundaries,
-                                                  name="bucketize_{}".format(field.field_name))
+                ori_feature = math_ops._bucketize(ori_feature, field.boundaries)
             if emb_group is not None:
                 assert emb_group in self._embeddings.keys(), "emb_group: '{}' not found in embedding settings".format(
                     emb_group)
@@ -245,7 +244,6 @@ class NetInputHelper(object):
                         lookup_table=None,
                         emb_layer=emb_layer)
             else:
-
                 tensor_val = ori_feature
 
             if process_hooks is not None and field.field_name in process_hooks:
@@ -353,7 +351,7 @@ class NetInputHelper(object):
 
 
 if __name__ == '__main__':
-    input_cfg = InputConfig("src/tensorflow_utils/input_layer/input_layer.toml")
+    input_cfg = InputConfig("src/input_layer/input_layer.toml")
     example_desc = input_cfg.build_train_example_feature_description()
     serving_input = input_cfg.build_serving_input_receiver()
     # print(example_desc)
@@ -361,13 +359,11 @@ if __name__ == '__main__':
 
     net_input_helper = NetInputHelper(input_cfg.get_emb_config())
     features = {
-        "prices": tf.constant([[2.0], [1.9]], dtype=tf.float32)
+        "second_cat_jd_num_sg": tf.constant([[1, 2, 3, 0, 0], [3, 4, 0, 0, 0]], dtype=tf.int64)
     }
-    # emb, mask = net_input_helper.build_single_field_var_len_input_emb(
-    #     features, input_cfg.get_feature_config())
-    # print(emb, mask)
+    emb, mask = net_input_helper.build_single_field_var_len_input_emb(
+        features, input_cfg.get_feature_config())
+    print(emb, mask)
 
-    res = net_input_helper.build_input_emb(features, input_cfg.get_feature_config())
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        print(sess.run(res))
+    print(NetInputHelper.pop_feature_from_feature_dict(features, names=["second_cat_jd_num_sg"], keep=False))
+    print(features)
