@@ -237,7 +237,7 @@ class NetInputHelper(object):
             else:  # cross features
                 assert field.emb_group_name is not None, "cross features must use embedding"
                 for p in parents:
-                    if p.feature_name != p.feature_name_idx:
+                    if p.feature_name != p.feature_name_idx and p.feature_name_idx not in features:
                         splitted_feas = utils.split_to_feature_dict(p.feature_name, features[p.feature_name])
                         for name, tensor in splitted_feas.items():
                             if name not in features:
