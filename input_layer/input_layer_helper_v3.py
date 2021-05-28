@@ -405,5 +405,4 @@ if __name__ == '__main__':
         sess.run(tf.global_variables_initializer())
         print(sess.run(res))
         # print(sess.run(str_cat))
-        tf.feature_column.crossed_column
 
