@@ -180,6 +180,13 @@ class NetInputHelper(object):
                             dtype=tf.float32,
                             initializer=tf.initializers.random_uniform)
 
+    def get_emb_group_cfg_by_name(self, name):
+        for group in self._emb_config[u"groups"]:
+            group = EmbGroupCfg(group)
+            if group.group_name == name:
+                return group
+        raise ValueError("emb_group_name: {} not found in emb_config: {}".format(name, self._emb_config))
+
     def get_embeddings(self):
         assert len(self._embeddings) > 0, "call build_embedding() first"
         return self._embeddings
@@ -211,7 +218,7 @@ class NetInputHelper(object):
             if field.should_ignore:
                 continue
             parents = field.parents
-            if parents is None:
+            if parents is None:  # if not cross feature
                 if field.field_name not in features:
                     if skip_if_not_contain:
                         continue
@@ -225,31 +232,36 @@ class NetInputHelper(object):
                     feature_tensor = math_ops._bucketize(feature_tensor, field.boundaries,
                                                          name="bucketize_{}".format(field.field_name))
                     feature_tensor = tf.cast(feature_tensor, dtype=tf.int64)
+                if field.do_hash:
+                    feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed([feature_tensor]))
             else:  # cross features
+                assert field.emb_group_name is not None, "cross features must use embedding"
                 for p in parents:
                     if p.feature_name != p.feature_name_idx:
                         splitted_feas = utils.split_to_feature_dict(p.feature_name, features[p.feature_name])
-                        features.update(splitted_feas)
+                        for name, tensor in splitted_feas.items():
+                            if name not in features:
+                                features[name] = tensor
+
                 ori_feature_tensor = []
                 for p in parents:
                     ori_feature_tensor.append(features[p.feature_name_idx])
                 feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed(ori_feature_tensor))
-            # ori_feature_tensor = features[field.field_name]
-            # feature_tensor = NetInputHelper.get_input_fea_of_interest(field, ori_feature_tensor)
-            # if field.boundaries is not None:
-            #     feature_tensor = math_ops._bucketize(feature_tensor, field.boundaries,
-            #                                          name="bucketize_{}".format(field.field_name))
 
-            emb_group = field.emb_group_name
-            if emb_group is not None:
-                assert emb_group in self._embeddings.keys(), "emb_group: '{}' not found in embedding settings".format(
-                    emb_group)
-                emb_group = EmbGroupCfg(emb_group)
+            emb_group_name = field.emb_group_name
+
+            print("emb_group_name: {}".format(emb_group_name))
+            if emb_group_name is not None:
+                assert emb_group_name in self._embeddings.keys(), """
+                    emb_group: '{}' not found in embedding settings
+                """.format(
+                    emb_group_name)
+                emb_group = self.get_emb_group_cfg_by_name(emb_group_name)
 
                 if emb_group.num_fea_values is not None:
                     feature_tensor = feature_tensor % emb_group.num_fea_values
 
-                emb_layer = self._embeddings.get(emb_group)
+                emb_layer = self._embeddings.get(emb_group_name)
                 if field.var_len_field:
                     feature_tensor = input_layer_utils.FeaProcessor.var_len_fea_process(
                         feature_tensor,

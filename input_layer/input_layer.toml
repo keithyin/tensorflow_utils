@@ -8,7 +8,7 @@
 #   pad_val=0                   the val pad var_len_feature to fixed_len_feature
 #   emb_group="coupon_info_emb_layer"  name of embedding_groups,
 #   skipped_dims = "1,2,3" or "start:end:step". used for remove the sub fields of the field ;
-#   fea_col_type = ""     check field_cfg.py for valid value
+#   do_hash  = true            do extra hash operation
 #   parents_features = ""
 
 # [[embedding.groups]]
@@ -52,28 +52,32 @@
 #pad_val=0
 #emb_group="wm_tag_pref_emb_layer"
 
-[[features.fields]]
+[[feature.fields]]
 name="profile"
 dtype="int64"
 tot_length=3
 emb_group="profile_emb_layer"
 
-[[features.fields]]
+[[feature.fields]]
 name="age"
 dtype="int64"
 tot_length=1
+emb_group="profile_emb_layer"
 
 [[feature.fields]]
 name="profile_age"
 parents_features="profile:0,age"
 dtype="int64"
 tot_length=1
+emb_group="profile_emb_layer"
 
 [[feature.fields]]
 name="prices"
 dtype="float32"
 tot_length=1
 boundaries=[1, 2, 3]
+emb_group="profile_emb_layer"
+do_hash = true
 
 
 [label]
@@ -94,7 +98,7 @@ as_fake_input=1  # only affect the serving input placeholders generating procedu
 name="profile_emb_layer"
 #use_cvm=true
 num_fea_values=40001
-emb_size=16
+emb_size=2
 
 [[embedding.groups]]
 name="drug_uv_info_emb_layer"

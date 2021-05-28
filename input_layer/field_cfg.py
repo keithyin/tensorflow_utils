@@ -38,6 +38,7 @@ class FeatureFieldCfg(object):
         self._fea_col_type = None
         self._fea_col = None
         self._parents = None  # crossed column parents
+        self._do_hash = False
         self._parse_field_dict()
         self._is_valid_cfg()
 
@@ -46,6 +47,10 @@ class FeatureFieldCfg(object):
 
     def set_emb_cfg(self, emb_cfg):
         self._emb_cfg = emb_cfg
+
+    @property
+    def do_hash(self):
+        return self._do_hash
 
     @property
     def parents(self):
@@ -127,6 +132,7 @@ class FeatureFieldCfg(object):
         self._boundaries = FeatureFieldCfg.parse_boundaries(self._field)
         self._fea_col_type = FeatureFieldCfg.parse_fea_col_type(self._field)
         self._parents = FeatureFieldCfg.parse_parents_features(self._field)
+        self._do_hash = FeatureFieldCfg.parse_do_hash(self._field)
 
     def _is_valid_cfg(self):
         if self.boundaries is not None:
@@ -272,6 +278,10 @@ class FeatureFieldCfg(object):
                                             feature_idx=fea_idx,
                                             feature_name_idx="{}_idx_{}".format(fea_name, fea_idx)))
         return parents
+
+    @staticmethod
+    def parse_do_hash(field):
+        return False if u"do_hash" not in field else field[u"do_hash"]
 
 
 class LabelFieldCfg(object):
