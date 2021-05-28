@@ -210,17 +210,21 @@ class NetInputHelper(object):
         feature_items = [(feature_name, ori_feature)
                          for feature_name, ori_feature in feature_items if feature_name != "dimensions"]
         feature_cfg_fields = sorted(feature_config[u'fields'], key=lambda x: x[u"name"])
-        tf.logging.debug("build_input_emb: feature_items: {}".format(feature_items))
-        tf.logging.debug("build_input_emb: feature_config: {}".format(feature_cfg_fields))
+        tf.logging.info("build_input_emb: feature_items: {}".format(feature_items))
+        tf.logging.info("build_input_emb: feature_config: {}".format(feature_cfg_fields))
 
         for field in feature_cfg_fields:
             field = FeatureFieldCfg(field)
             if field.should_ignore:
+                tf.logging.info("build_input_emb: ignored field {}".format(field.field_name))
                 continue
             parents = field.parents
             if parents is None:  # if not cross feature
                 if field.field_name not in features:
                     if skip_if_not_contain:
+                        tf.logging.warn("build_input_emb: [{}] not found in the features :[{}]".format(
+                            field.field_name,
+                            features))
                         continue
                     else:
                         raise ValueError("feature_name:{} not found in features: {}".format(
@@ -279,7 +283,7 @@ class NetInputHelper(object):
 
             if process_hooks is not None and field.field_name in process_hooks:
                 feature_tensor = process_hooks[field.field_name](feature_tensor)
-            tf.logging.debug("feature_name:{}, before:{}, after:{}".format(
+            tf.logging.info("feature_name: {}, before: {}, after: {}".format(
                 field.field_name,
                 ori_feature_tensor,
                 feature_tensor))
@@ -288,8 +292,8 @@ class NetInputHelper(object):
 
         assert len(input_tensors) > 0, ""
         feature_items = sorted(list(input_tensors.items()), key=lambda x: x[0])
-        tf.logging.info("build_input_emb, input embeddings = \n{}".format(
-            "\n".join(["{} ---> {}".format(name, tensor) for name, tensor in feature_items])))
+        tf.logging.info("build_input_emb, input embeddings = *********** \n {} \n********".format(
+            "\n".join(["    {} ---> {}".format(name, tensor) for name, tensor in feature_items])))
         if len(input_tensors) == 1:
             inp = tf.identity(feature_items[0][1], name="build_input_emb.input_embedding")
         else:
