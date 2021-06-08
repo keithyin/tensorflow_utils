@@ -194,10 +194,10 @@ class NetInputHelper(object):
     def build_input_emb(self, features, feature_config, process_hooks=None, skip_if_not_contain=False):
         """
         id -> embedding, and then concat different field together.
-        iterate `features`, and get corresponding config in `feature_config`
+        iterate `feature_config`, and get corresponding feature tensor in `features`
         pop field from `features` if you don't want that field present in the input embedding
 
-        :param features: the feature part of parsed_example.
+        :param features: tensor dict. the feature part of parsed_example.
         :param feature_config: feature config
         :param process_hooks:
         :param skip_if_not_contain: if the feature_configged feature not in the features, Raise error or not
@@ -212,17 +212,18 @@ class NetInputHelper(object):
         feature_cfg_fields = sorted(feature_config[u'fields'], key=lambda x: x[u"name"])
         tf.logging.info("build_input_emb: feature_items: {}".format(feature_items))
         tf.logging.info("build_input_emb: feature_config: {}".format(feature_cfg_fields))
-
         for field in feature_cfg_fields:
             field = FeatureFieldCfg(field)
             if field.should_ignore:
                 tf.logging.info("build_input_emb: ignored field {}".format(field.field_name))
                 continue
             parents = field.parents
+
+            # **************** process origin feature tensor ****************
             if parents is None:  # if not cross feature
                 if field.field_name not in features:
                     if skip_if_not_contain:
-                        tf.logging.warn("build_input_emb: [{}] not found in the features :[{}]".format(
+                        tf.logging.warn("build_input_emb: [{}] not found in the features :[{}]. so skipped".format(
                             field.field_name,
                             features))
                         continue
@@ -241,6 +242,7 @@ class NetInputHelper(object):
             else:  # cross features
                 assert field.emb_group_name is not None, "cross features must use embedding"
                 for p in parents:
+                    # p.feature_name != p.feature_name_idx means parent feature is has multi sub field.
                     if p.feature_name != p.feature_name_idx and p.feature_name_idx not in features:
                         splitted_feas = utils.split_to_feature_dict(p.feature_name, features[p.feature_name])
                         for name, tensor in splitted_feas.items():
@@ -252,8 +254,10 @@ class NetInputHelper(object):
                     ori_feature_tensor.append(features[p.feature_name_idx])
                 feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed(ori_feature_tensor))
 
-            emb_group_name = field.emb_group_name
+            # **************** process origin feature tensor DONE ****************
 
+            # **************** lookup embedding matrix ***************************
+            emb_group_name = field.emb_group_name
             print("emb_group_name: {}".format(emb_group_name))
             if emb_group_name is not None:
                 assert emb_group_name in self._embeddings.keys(), """
@@ -281,6 +285,9 @@ class NetInputHelper(object):
                         lookup_table=None,
                         emb_layer=emb_layer)
 
+            # **************** lookup embedding matrix DONE ***************************
+
+            # **************** post process ****************
             if process_hooks is not None and field.field_name in process_hooks:
                 feature_tensor = process_hooks[field.field_name](feature_tensor)
             tf.logging.info("feature_name: {}, before: {}, after: {}".format(
@@ -375,6 +382,9 @@ class NetInputHelper(object):
 
     @staticmethod
     def get_input_fea_of_interest(field, ori_feature):
+        """
+        skip the unwanted dims of ori_feature
+        """
         remained_dims = field.remain_dims
         if len(remained_dims) == 0:
             return None
