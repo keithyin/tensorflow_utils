@@ -137,15 +137,17 @@ class InputConfig(object):
 
 
 class NetInputHelper(object):
-    def __init__(self, emb_config):
+    def __init__(self, emb_config, shard_num=1):
         """
+        attention: constructor will generate bunch of embedding matrix
+
         :param emb_config: toml config file path
         """
         self._emb_config = emb_config
         self._embeddings = {}
-        self._build_embeddings()
+        self._build_embeddings(shard_num)
 
-    def _build_embeddings(self):
+    def _build_embeddings(self, shard_num):
         """
         at the beginning the neural network, we need to build the embeddings which we will use after.
         """
@@ -176,11 +178,12 @@ class NetInputHelper(object):
                             name="{}_emb_layer".format(name),
                             initializer=tf.truncated_normal_initializer(
                                 0.0, 1e-2),
-                            shard_num=4)
+                            shard_num=shard_num)
                     else:
                         self._embeddings[name] = tf.get_variable(
                             name=name, shape=[num_fea_values, emb_size],
                             dtype=tf.float32,
+                            partitioner=tf.fixed_size_partitioner(shard_num, axis=0),
                             initializer=tf.initializers.random_uniform)
 
     def get_emb_group_cfg_by_name(self, name):
