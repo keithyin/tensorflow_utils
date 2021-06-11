@@ -27,21 +27,41 @@ class FeatureFieldCfg(object):
         self._field = field
         self._var_len_field = False
         self._num_sub_field = 1
+
+        # you can set skipped_dims in input_layer.toml  to disable sub_field of field
+        # this is very useful for experiment
         self._num_sub_field_after_skip = 1
+        self._remain_dims = None
+        self._tot_length_after_skip = None
 
         self._emb_group_name = None
         self._field_name = None
         self._pad_val = None
         self._tot_length = None
-        self._tot_length_after_skip = None
-        self._remain_dims = None
+
+        # if ignore, the corresponding feature of this field will not appear in the model input.
         self._should_ignore = None
         self._dtype = None
+
+        # NetInputHelper.build_model_input use this value to bucketize given raw feature value
         self._boundaries = None
+
+        # this is useless now
         self._fea_col_type = None
+
+        # this is useless now
         self._fea_col = None
+
+        # parents of cross feature.
         self._parents = None  # crossed column parents
+
+        # NetInputHelper.build_model_input use this value to decide whether hash the given raw feature value
         self._do_hash = False
+
+        # recommendation model may have multi tower, for example: user, ad, etc.
+        # this is used for this field belong to which tower.
+        # if you don't need multi tower, no need to set it in input_layer.toml
+        # NetInputHelper.build_model_input use this field to organise it's output dict
         self._tower_name = FeatureFieldCfg.DEFAULT_TOWER_NAME
         self._parse_field_dict()
         self._is_valid_cfg()

@@ -2,8 +2,6 @@
 
 from __future__ import print_function
 
-import copy
-
 import toml
 import tensorflow as tf
 from ..utils import input_layer as input_layer_utils
@@ -12,6 +10,33 @@ from tensorflow.python import math_ops
 from ..net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
 from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg, CrossFeaInfo
+
+
+"""
+
+
+Usage:
+    input_config = InputConfig("input_layer.toml")
+    
+    # when parse example
+    def parse_function(self, record, is_training=False):
+        record_desc = input_config.build_train_example_feature_description()
+        record = tf.parse_single_example(record, record_desc)
+        feature, label = input_config.split_parsed_record_to_feature_label(record)
+        return feature, label
+    
+    # when build model_input. using NetInputHelper
+    input_helper = NetInputHelper(input_config.get_emb_config(), shard_num=1)
+    
+        # features is dict of tensor that generated from dataset
+        # the returned inp is also dict of tensor. one can use inp['tower_name'] 
+        # to get the corresponding tower input.
+        # build_model_input has default mean pooling behavior for sequence feature
+        # if one want do other operation on sequence feature. 
+        # one can use build_single_field_var_len_input to get 3-D tensor
+    inp = input_helper.build_model_input(features, input_config.get_feature_config())
+    
+"""
 
 
 class InputConfig(object):
