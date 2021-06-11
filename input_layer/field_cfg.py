@@ -16,6 +16,9 @@ CrossFeaInfo = namedtuple("CrossFeaInfo", ["feature_name", "feature_idx", "featu
 
 
 class FeatureFieldCfg(object):
+
+    DEFAULT_TOWER_NAME = "default_tower"
+
     def __init__(self, field):
         """
         :param field: dict parsed from toml
@@ -39,6 +42,7 @@ class FeatureFieldCfg(object):
         self._fea_col = None
         self._parents = None  # crossed column parents
         self._do_hash = False
+        self._tower_name = FeatureFieldCfg.DEFAULT_TOWER_NAME
         self._parse_field_dict()
         self._is_valid_cfg()
 
@@ -47,6 +51,10 @@ class FeatureFieldCfg(object):
 
     def set_emb_cfg(self, emb_cfg):
         self._emb_cfg = emb_cfg
+
+    @property
+    def tower_name(self):
+        return self._tower_name
 
     @property
     def do_hash(self):
@@ -133,6 +141,7 @@ class FeatureFieldCfg(object):
         self._fea_col_type = FeatureFieldCfg.parse_fea_col_type(self._field)
         self._parents = FeatureFieldCfg.parse_parents_features(self._field)
         self._do_hash = FeatureFieldCfg.parse_do_hash(self._field)
+        self._tower_name = FeatureFieldCfg.parse_tower_name(self._field)
 
     def _is_valid_cfg(self):
         if self.boundaries is not None:
@@ -282,6 +291,10 @@ class FeatureFieldCfg(object):
     @staticmethod
     def parse_do_hash(field):
         return False if u"do_hash" not in field else field[u"do_hash"]
+
+    @staticmethod
+    def parse_tower_name(field):
+        return FeatureFieldCfg.DEFAULT_TOWER_NAME if u"tower" not in field else field[u"tower"]
 
 
 class LabelFieldCfg(object):

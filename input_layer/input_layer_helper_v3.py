@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
+
+import copy
+
 import toml
 import tensorflow as tf
 from ..utils import input_layer as input_layer_utils
@@ -200,8 +203,11 @@ class NetInputHelper(object):
         :param features: tensor dict. the feature part of parsed_example.
         :param feature_config: feature config
         :param process_hooks:
-        :param skip_if_not_contain: if the feature_configged feature not in the features, Raise error or not
+        :param skip_if_not_contain: if the feature_config feature not in the features, Raise error or not
+        :return dict of concatenate tower embedding
         """
+        features = features.copy()
+
         assert len(self._embeddings) > 0, "call build_embeddings first"
         input_tensors = {}
         # some feature may not go into this function, so we iterator features instead of config[u"feature"][u"fields"]
@@ -299,12 +305,11 @@ class NetInputHelper(object):
 
         assert len(input_tensors) > 0, ""
         feature_items = sorted(list(input_tensors.items()), key=lambda x: x[0])
-        tf.logging.info("build_input_emb, input embeddings = *********** \n {} \n********".format(
+
+        tf.logging.info("     build_input_emb, input embeddings = *********** \n {} \n********".format(
             "\n".join(["    {} ---> {}".format(name, tensor) for name, tensor in feature_items])))
-        if len(input_tensors) == 1:
-            inp = tf.identity(feature_items[0][1], name="build_input_emb.input_embedding")
-        else:
-            inp = tf.concat([emb for _, emb in feature_items], axis=1, name="build_input_emb.input_embedding")
+
+        inp = NetInputHelper.organize_input_emb_with_tower(input_embs=input_tensors, feature_config=feature_config)
         tf.logging.info("build_input_emb={}".format(inp))
         return inp
 
@@ -359,6 +364,31 @@ class NetInputHelper(object):
 
         emb, mask = process_hook(emb, mask) if process_hook is not None else (emb, mask)
         return emb, mask
+
+    @staticmethod
+    def organize_input_emb_with_tower(input_embs, feature_config):
+        """
+        organize_input_emb_with_tower.
+        Args:
+            input_embs: tensor dict
+            feature_config: feature config
+        Returns:
+            dict of concatenate tower embedding
+        """
+        assert isinstance(input_embs, dict)
+        assert isinstance(feature_config, dict)
+        tensor_group = {}
+        input_embs = sorted(list(input_embs.items()), key=lambda x: x[0])
+        for field_name, tensor in input_embs:
+            field = InputConfig.get_field_by_name(feature_config, field_name)
+            field = FeatureFieldCfg(field)
+            if field.tower_name not in tensor_group:
+                tensor_group[field.tower_name] = []
+            tensor_group[field.tower_name].append(tensor)
+        results = {}
+        for tower_name, tensors in tensor_group.items():
+            results[tower_name] = tf.concat(tensors, axis=1, name="input_embedding_{}".format(tower_name))
+        return results
 
     @staticmethod
     def pop_feature_from_feature_dict(feature_dict, names, keep=False):

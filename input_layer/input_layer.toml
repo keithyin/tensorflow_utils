@@ -10,6 +10,7 @@
 #   skipped_dims = "1,2,3" or "start:end:step". used for remove the sub fields of the field ;
 #   do_hash  = true            do extra hash operation
 #   parents_features = ""
+#   tower = ""                 this is for distinguish different tower features. check input_layer_helper.build_input_emb & input_layer_helper.build_single_field_var_len_input_emb for more info
 
 # [[embedding.groups]]
 #   name="drug_third_cat_emb_layer": corresponding to feature.fields.emb_group
@@ -57,6 +58,7 @@ name="profile"
 dtype="int64"
 tot_length=3
 emb_group="profile_emb_layer"
+tower = "user"
 
 [[feature.fields]]
 name="age"
