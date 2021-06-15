@@ -110,7 +110,7 @@ class InputConfig(object):
         for field in self._feature_config[u"fields"]:
             field = FeatureFieldCfg(field)
             name = field.field_name
-            if name == u"dimensions":
+            if name in (u"dimensions", u"dp"):
                 continue
             if name in feed_dict:
                 raise ValueError("duplicated feature field name: '{}'".format(name))
@@ -242,7 +242,7 @@ class NetInputHelper(object):
         # assure the order
         feature_items = sorted(list(features.items()), key=lambda x: x[0])
         feature_items = [(feature_name, ori_feature)
-                         for feature_name, ori_feature in feature_items if feature_name != "dimensions"]
+                         for feature_name, ori_feature in feature_items if feature_name not in ("dimensions", u"dp")]
         feature_cfg_fields = sorted(feature_config[u'fields'], key=lambda x: x[u"name"])
         tf.logging.info("build_input_emb: feature_items: {}".format(feature_items))
         tf.logging.info("build_input_emb: feature_config: {}".format(feature_cfg_fields))
