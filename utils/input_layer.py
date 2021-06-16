@@ -50,11 +50,10 @@ class FeaProcessor(object):
         if emb_layer is not None:
             assert not isinstance(emb_layer, tf.keras.layers.Embedding), "don't support keras"
 
-            if isinstance(emb_layer, list) and isinstance(emb_layer[0],
-                                                          tf.python.ops.lookup_ops.MutableDenseHashTableV2):
-                inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp)
-            else:
+            try:
                 inp = tf.nn.embedding_lookup(emb_layer, inp)
+            except:
+                inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp, threshold=50)
         return inp
 
     @staticmethod
