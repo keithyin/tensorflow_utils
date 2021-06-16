@@ -1,0 +1,128 @@
+# this file is feature & label & emb_layers configuration
+# [[feature.fields]]
+#   name="other_coupon_info"   feature_name: corresponding to tfrecord feature_name
+#   dtype="int64"              tf.io.FixedLenFeature([tot_length], dtype=dtype)
+#   tot_length=100
+#   ignore = true               when using build_input_emb, ignore this field or not!
+#   num_sub_field=10            utils.input_layer.FeaProcessor.var_len_fea_process(fea_num=num_sub_field)
+#   pad_val=0                   the val pad var_len_feature to fixed_len_feature
+#   emb_group="coupon_info_emb_layer"  name of embedding_groups,
+#   skipped_dims = "1,2,3" or "start:end:step". used for remove the sub fields of the field ;
+#   do_hash  = true            do extra hash operation
+#   parents_features = ""
+#   tower = ""                 this is for distinguish different tower features. check input_layer_helper.build_input_emb & input_layer_helper.build_single_field_var_len_input_emb for more info
+
+# [[embedding.groups]]
+#   name="drug_third_cat_emb_layer": corresponding to feature.fields.emb_group
+#   num_fea_values=60          tf.keras.layers.Embedding(input_dim=num_fea_values, output_dim=emb_size)
+#   emb_size=8
+
+[feature]
+
+#[[feature.fields]]
+#name="dimensions"
+#dtype="string"
+#tot_length=1
+#ignore=true
+#
+#[[feature.fields]]
+#name="context_fea"
+#dtype="int64"
+#tot_length=2
+#emb_group="context_fea_emb_layer"
+#
+#[[feature.fields]]
+#name="our_coupon_info"
+#dtype="int64"
+#tot_length=100
+#num_sub_field=10
+#pad_val=0
+#emb_group="coupon_info_emb_layer"
+#
+#[[feature.fields]]
+#name="our_coupon_amts"
+#dtype="float32"
+#tot_length=20
+#num_sub_field=2
+#pad_val=0
+#
+#[[feature.fields]]
+#name="user_tag_name_pref_click_30days_wm"
+#dtype="int64"
+#tot_length=5
+#pad_val=0
+#emb_group="wm_tag_pref_emb_layer"
+
+[[feature.fields]]
+name="profile"
+dtype="int64"
+tot_length=3
+emb_group="profile_emb_layer"
+tower = "user"
+
+[[feature.fields]]
+name="age"
+dtype="int64"
+tot_length=1
+emb_group="profile_emb_layer"
+
+[[feature.fields]]
+name="profile_age"
+parents_features="profile:0,age"
+dtype="int64"
+tot_length=1
+emb_group="profile_emb_layer"
+
+[[feature.fields]]
+name="prices"
+dtype="float32"
+tot_length=1
+boundaries=[1, 2, 3]
+emb_group="profile_emb_layer"
+do_hash = true
+
+
+[label]
+
+[[label.fields]]
+name="label"
+dtype="float32"
+
+[[label.fields]]
+name="cost"
+dtype="float32"
+as_fake_input=1  # only affect the serving input placeholders generating procedure.
+
+
+[embedding]
+
+[[embedding.groups]]
+name="profile_emb_layer"
+#use_cvm=true
+num_fea_values=40001
+emb_size=2
+
+[[embedding.groups]]
+name="drug_uv_info_emb_layer"
+num_fea_values=10
+emb_size=4
+
+[[embedding.groups]]
+name="eshow_clk_asso_emb_layer"
+num_fea_values=40
+emb_size=4
+
+[[embedding.groups]]
+name="wm_tag_pref_emb_layer"
+num_fea_values=150
+emb_size=8
+
+[[embedding.groups]]
+name="sg_jd_emb_layer"
+num_fea_values=100
+emb_size=8
+
+[[embedding.groups]]
+name="drug_third_cat_emb_layer"
+num_fea_values=4000
+emb_size=8

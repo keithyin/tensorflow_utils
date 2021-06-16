@@ -36,7 +36,7 @@ class FeaProcessor(object):
             try:
                 inp = tf.nn.embedding_lookup(emb_layer, inp)
             except:
-                inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp)
+                inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp, threshold=50)
         return inp, mask
 
     @staticmethod

@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import toml
 import tensorflow as tf
+from tensorflow import initializers
 from ..utils import input_layer as input_layer_utils
 from ..utils import utils
 from tensorflow.python import math_ops
@@ -162,17 +163,19 @@ class InputConfig(object):
 
 
 class NetInputHelper(object):
-    def __init__(self, emb_config, shard_num=1):
+    def __init__(self, emb_config, is_train, shard_num=1):
         """
         attention: constructor will generate bunch of embedding matrix
-
-        :param emb_config: toml config file path
+        Args:
+            emb_config:
+            is_train: whether train mode
+            shard_num:
         """
         self._emb_config = emb_config
         self._embeddings = {}
-        self._build_embeddings(shard_num)
+        self._build_embeddings(shard_num, is_train)
 
-    def _build_embeddings(self, shard_num):
+    def _build_embeddings(self, shard_num, is_train):
         """
         at the beginning the neural network, we need to build the embeddings which we will use after.
         """
@@ -196,20 +199,22 @@ class NetInputHelper(object):
                 else:
                     if group.use_hash_emb_table:
                         from tensorflow.contrib.lookup.lookup_ops import get_mutable_dense_hashtable
+                        initializer = tf.truncated_normal_initializer(0.0, 1e-2) if is_train else tf.zeros_initializer()
                         self._embeddings[name] = get_mutable_dense_hashtable(
                             key_dtype=tf.int64,
                             value_dtype=tf.float32,
                             shape=tf.TensorShape([emb_size]),
                             name="{}_emb_layer".format(name),
-                            initializer=tf.truncated_normal_initializer(
-                                0.0, 1e-2),
+                            initializer=initializer,
+
                             shard_num=shard_num)
+
                     else:
                         self._embeddings[name] = tf.get_variable(
                             name=name, shape=[num_fea_values, emb_size],
                             dtype=tf.float32,
                             partitioner=tf.fixed_size_partitioner(shard_num, axis=0),
-                            initializer=tf.initializers.random_uniform)
+                            initializer=tf.random_uniform_initializer())
 
     def get_emb_group_cfg_by_name(self, name):
         for group in self._emb_config[u"groups"]:
