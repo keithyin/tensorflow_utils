@@ -164,7 +164,10 @@ class GroupAucHook(session_run_hook.SessionRunHook):
                 detailed_auc_infos.append([group_name,
                                            auc.GetNumIns(), proportional * 100, this_group_auc])
 
-            info = "GroupAucInfo: {}, global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}\n".format(
+            info = """GroupAucInfo: {}, 
+            \r      global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}
+            \r      --------------------------
+            \r""".format(
                 self._name,
                 self._last_global_step,
                 self._inner_step,
@@ -333,8 +336,10 @@ class RegressionHook(session_run_hook.SessionRunHook):
                 return
 
             tot_ins = float(tot_ins)
-            info = "RegressionMetrics: {}, global_step: {}, inner_step: {}, tot_ins: {}, " \
-                   "mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f}\n".format(
+            info = """RegressionMetrics: {}, 
+            \r   global_step: {}, inner_step: {}, tot_ins: {}, mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f}
+            \r ------------------------------------------------
+            \r""".format(
                 self._name,
                 self._last_global_step,
                 self._inner_step,
@@ -451,7 +456,10 @@ class GroupRSquaredHook(session_run_hook.SessionRunHook):
                      proportional * 100,
                      this_group_r_squared])
 
-            info = "GroupRSquaredInfo: {}, global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}\n".format(
+            info = """GroupRSquaredInfo: {}, 
+                    \r  global_step: {}, inner_step:{}, tot_ins: {}, GroupRSquared: {:.4f}
+                    \r  --------------------------------
+                    \r""".format(
                 self._name,
                 self._last_global_step,
                 self._inner_step,
