@@ -460,13 +460,15 @@ class NetInputHelper(object):
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.DEBUG)
-    input_cfg = InputConfig("src/tensorflow_utils/input_layer/input_layer.toml")
+    input_cfg = InputConfig("src/input_layer/input_layer_v08_02.toml")
     example_desc = input_cfg.build_train_example_feature_description()
     serving_input = input_cfg.build_serving_input_receiver()
     # print(example_desc)
     # print(serving_input)
+    print(serving_input)
+    exit(0)
 
-    net_input_helper = NetInputHelper(input_cfg.get_emb_config())
+    net_input_helper = NetInputHelper(input_cfg.get_emb_config(), is_train=True)
     features = {
         "profile": tf.constant([[1, 11, 21], [2, 12, 22]], dtype=tf.int64),
         "age": tf.constant([[10], [20]], dtype=tf.int64),

@@ -352,9 +352,7 @@ class LabelFieldCfg(object):
 
     @staticmethod
     def parse_is_fake_input_field(field):
-        if u"as_fake_input" in field and field[u"as_fake_input"] is True:
-            return True
-        return False
+        return False if u"as_fake_input" not in field else field[u"as_fake_input"]
 
 
 class EmbGroupCfg(object):
