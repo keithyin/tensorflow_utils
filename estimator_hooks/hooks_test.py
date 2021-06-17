@@ -98,6 +98,7 @@ def cnn_model_fn(features, labels, mode):
                                           label_tensor=tf.one_hot(labels, depth=10)[:, 0],
                                           pred_tensor=tf.sigmoid(logits[:, 0]),
                                           mask_tensor=tf.ones_like(logits[:, 0]), reset_step=50)
+
     return tf.estimator.EstimatorSpec(
         mode=mode,
         loss=tf.cond(tf.random_uniform(shape=[], maxval=1) > 0.7,

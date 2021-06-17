@@ -362,3 +362,146 @@ class RegressionHook(session_run_hook.SessionRunHook):
             tf.logging.info(info)
             if self._message_pusher is not None:
                 self._message_pusher.push_text(info)
+
+
+class GroupRSquaredHook(session_run_hook.SessionRunHook):
+    def __init__(self, name, group_tensor, label_tensor, pred_tensor, mask_tensor, group_global_mean,
+                 log_step=1e8, reset_step=None, message_pusher=None):
+
+        tf.logging.debug("GroupRSquaredHook, name: {}, group_tensor: {}, label_tensor: {}, pred_tensor: {}".format(
+            name, group_tensor, label_tensor, pred_tensor
+        ))
+        assert len(group_tensor.shape) == len(label_tensor.shape)
+        assert len(label_tensor.shape) == len(pred_tensor.shape)
+        self._global_step = tf.train.get_global_step()
+        assert self._global_step is not None, "no global step, no happy"
+        self._group_global_mean = group_global_mean
+        assert isinstance(self._group_global_mean, dict)
+        self._group_tensor = group_tensor
+        self._label_tensor = label_tensor
+        self._pred_tensor = pred_tensor
+        self._mask_tensor = mask_tensor
+        self._log_step = log_step
+        self._reset_step = reset_step
+        self._inner_step = 0
+        self._last_global_step = 0
+        self._group_r_squared = {}
+        self._name = name
+        self._message_pusher = message_pusher
+
+    def _reset(self):
+        tf.logging.info("GroupRSquaredHook reset")
+        self._inner_step = 0
+        self._group_r_squared = {}
+
+    def begin(self):
+        self._reset()
+
+    def before_run(self, run_context):
+        if self._reset_step is not None and (self._inner_step + 1) % self._reset_step == 0:
+            self._log(force_print=True)
+            self._reset()
+        self._inner_step += 1
+        return session_run_hook.SessionRunArgs(
+            fetches=[self._group_tensor, self._label_tensor, self._pred_tensor, self._mask_tensor, self._global_step])
+
+    def after_run(self,
+                  run_context,  # pylint: disable=unused-argument
+                  run_values):
+        group, label, pred, mask, global_step = run_values.results
+        self._last_global_step = global_step
+        mask = mask.flatten()
+        selector = mask == 1
+        group = group.flatten()[selector]
+        label = label.flatten()[selector]
+        pred = pred.flatten()[selector]
+
+        distinct_group = set(group.tolist())
+        for g in distinct_group:
+            if g not in self._group_r_squared:
+                self._group_r_squared[g] = RSquared(self._group_global_mean[g])
+        for g in distinct_group:
+            selector = group == g
+            self._group_r_squared[g].Update(labels=label[selector], predicts=pred[selector])
+
+        self._log()
+
+    def end(self, session):
+        tf.logging.info("SESSION RUN END!")
+        self._log(force_print=True)
+
+    def _log(self, force_print=False):
+        if self._inner_step % self._log_step == 0 or force_print:
+            tot_ins = 0
+            for group_name, r_squared_info in self._group_r_squared.items():
+                tot_ins += r_squared_info.GetNumIns()
+            tot_ins = float(tot_ins)
+
+            group_r_squared = 0
+            detailed_r_squared_infos = []
+
+            for group_name, r_squared_info in self._group_r_squared.items():
+                proportional = r_squared_info.GetNumIns() / tot_ins
+                this_group_r_squared = r_squared_info.Compute()
+                group_r_squared += proportional * this_group_r_squared
+
+                detailed_r_squared_infos.append(
+                    [group_name,
+                     r_squared_info.GetNumIns(),
+                     proportional * 100,
+                     this_group_r_squared])
+
+            info = "GroupRSquaredInfo: {}, global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}\n".format(
+                self._name,
+                self._last_global_step,
+                self._inner_step,
+                int(tot_ins),
+                group_r_squared)
+
+            info_fmt = "group: {}, group_ins: {}, pct: {:.4f}%, r_squared: {:.4f}\n"
+            detailed_r_squared_infos = sorted(detailed_r_squared_infos, key=lambda x: x[1], reverse=True)
+
+            for item in detailed_r_squared_infos:
+                info += (info_fmt.format(item[0], item[1], item[2], item[3]))
+            tf.logging.info(info)
+
+            if self._message_pusher is not None:
+                self._message_pusher.push_text(info)
+
+
+class RSquared(object):
+    def __init__(self, global_mean):
+        self._global_mean = global_mean
+        self._label_minus_pred_squared_sum = 0
+        self._label_minus_global_mean_squared_sum = 0
+        self._num_ins = 0
+
+    def Reset(self):
+        self._label_minus_pred_squared_sum = 0
+        self._label_minus_global_mean_squared_sum = 0
+        self._num_ins = 0
+
+    def Update(self, labels, predicts):
+        """
+        :param labels: 1-D ndarray
+        :param predicts: 1-D ndarray
+        :return: None
+        """
+        labels = labels.astype(np.float).flatten()
+        predicts = predicts.astype(np.float).flatten()
+        self._label_minus_pred_squared_sum += np.sum(np.square(labels - predicts))
+        self._label_minus_global_mean_squared_sum += np.sum(np.square(labels - self._global_mean))
+        self._num_ins += len(labels)
+
+    def Compute(self):
+        """
+        Returns:
+            r-squared. value range (-inf, 1],
+            The closer the value of r-squared was to 1, the better the performance of the model
+        """
+        if self._label_minus_global_mean_squared_sum < 1e-6:
+            return -1e6
+        return 1 - self._label_minus_pred_squared_sum / self._label_minus_global_mean_squared_sum
+
+    def GetNumIns(self):
+        return self._num_ins
