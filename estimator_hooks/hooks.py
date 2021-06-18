@@ -165,8 +165,8 @@ class GroupAucHook(session_run_hook.SessionRunHook):
                                            auc.GetNumIns(), proportional * 100, this_group_auc])
 
             info = """GroupAucInfo: {}, 
-            \r      global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}
-            \r      --------------------------
+            \r global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}
+            \r --------------------------
             \r""".format(
                 self._name,
                 self._last_global_step,

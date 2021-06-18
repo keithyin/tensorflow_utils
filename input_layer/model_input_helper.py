@@ -111,6 +111,8 @@ class InputConfig(object):
         for field in self._feature_config[u"fields"]:
             field = FeatureFieldCfg(field)
             name = field.field_name
+            if field.parents is not None:
+                continue
             if name in (u"dimensions", u"dp"):
                 continue
             if name in feed_dict:
@@ -137,6 +139,8 @@ class InputConfig(object):
                     field = LabelFieldCfg(field)
                 else:
                     field = FeatureFieldCfg(field)
+                    if field.parents is not None:
+                        continue
                 dtype = field.dtype
                 tot_length = field.tot_length
                 name = field.field_name
