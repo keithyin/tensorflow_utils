@@ -210,7 +210,6 @@ class NetInputHelper(object):
                             shape=tf.TensorShape([emb_size]),
                             name="{}_emb_layer".format(name),
                             initializer=initializer,
-
                             shard_num=shard_num)
 
                     else:
