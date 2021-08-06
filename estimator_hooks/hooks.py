@@ -244,11 +244,60 @@ class Auc(object):
 
 
 class RegressionGroupInfo(object):
-    def __init__(self, num_ins=0, tot_bias=0, tot_mae=0, tot_mse=0):
+    def __init__(self, group_name, num_ins=0, tot_bias=0, tot_mae=0, tot_mse=0, tot_pred=0, tot_target=0):
         self.num_ins = num_ins
         self.tot_bias = tot_bias
         self.tot_mae = tot_mae
         self.tot_mse = tot_mse
+        self.tot_pred = tot_pred
+        self.tot_target = tot_target
+
+        self.group_name = group_name
+        self.pct = None
+
+    def update(self, pred, label):
+        """
+
+        Args:
+            pred: 1d-ndarray
+            label:  1d-ndarray
+
+        Returns:
+
+        """
+        point_wise_bias = label - pred
+        self.num_ins += len(label)
+        self.tot_bias += np.sum(point_wise_bias)
+        self.tot_mae += np.sum(np.abs(point_wise_bias))
+        self.tot_mse += np.sum(np.square(point_wise_bias))
+        self.tot_pred += np.sum(pred)
+        self.tot_target += np.sum(label)
+
+    def reset(self):
+        self.num_ins = 0
+        self.tot_bias = 0
+        self.tot_mae = 0
+        self.tot_mse = 0
+        self.tot_pred = 0
+        self.tot_target = 0
+
+    def compute_pcr(self, all_group_ins):
+        """
+        Args:
+            all_group_ins:
+
+        Returns:
+
+        """
+        self.pct = float(self.num_ins) / float(all_group_ins)
+
+    def to_str(self):
+        assert self.pct is not None, "call compute_pcr first"
+        fmt = "group: {}, ins: {}, pct: {:.4f}%, bias: {:.3f}, mae: {:.3f}, mse: {:.3f}, pred: {:.3f}, target: {:.3f}\n"
+        num_ins = float(self.num_ins)
+        res_str = fmt.format(self.group_name, self.num_ins, self.pct, self.tot_bias / num_ins, self.tot_mae / num_ins,
+                             self.tot_mse / num_ins, self.tot_pred / num_ins, self.tot_target / num_ins)
+        return res_str
 
 
 class RegressionHook(session_run_hook.SessionRunHook):
@@ -304,16 +353,12 @@ class RegressionHook(session_run_hook.SessionRunHook):
         distinct_group = set(group.tolist())
         for g in distinct_group:
             if g not in self._group_infos:
-                self._group_infos[g] = RegressionGroupInfo(num_ins=0, tot_bias=0, tot_mae=0, tot_mse=0)
+                self._group_infos[g] = RegressionGroupInfo(group_name=g, num_ins=0, tot_bias=0, tot_mae=0, tot_mse=0)
         for g in distinct_group:
             group_ins_selector = group == g
             group_label = label[group_ins_selector]
             group_pred = pred[group_ins_selector]
-            point_wise_bias = group_label - group_pred
-            self._group_infos[g].num_ins += len(group_label)
-            self._group_infos[g].tot_bias += np.sum(point_wise_bias)
-            self._group_infos[g].tot_mae += np.sum(np.abs(point_wise_bias))
-            self._group_infos[g].tot_mse += np.sum(np.square(point_wise_bias))
+            self._group_infos[g].update(group_pred, group_label)
 
         self._log()
 
@@ -348,20 +393,14 @@ class RegressionHook(session_run_hook.SessionRunHook):
                 tot_mae / tot_ins,
                 tot_mse / tot_ins)
             group_infos = sorted(list(self._group_infos.items()), key=lambda x: x[1].num_ins, reverse=True)
-            group_info_fmt = "group: {}, num_ins: {}, pct: {:.4f}%, " \
-                             "mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f}\n"
+
             for group_info in group_infos:
-                group_name = group_info[0]
                 num_ins = group_info[1].num_ins
                 if num_ins < 1:
                     continue
-                num_ins = float(num_ins)
-                tot_bias = group_info[1].tot_bias
-                tot_mae = group_info[1].tot_mae
-                tot_mse = group_info[1].tot_mse
-                group_msg = group_info_fmt.format(
-                    group_name, int(num_ins), num_ins / tot_ins * 100,
-                                              tot_bias / num_ins, tot_mae / num_ins, tot_mse / num_ins)
+                group_info[1].compute_pcr(tot_ins)
+                group_msg = group_info[1].to_str()
+
                 info += group_msg
 
             tf.logging.info(info)
