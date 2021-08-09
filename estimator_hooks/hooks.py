@@ -295,7 +295,8 @@ class RegressionGroupInfo(object):
         assert self.pct is not None, "call compute_pcr first"
         fmt = "group: {}, ins: {}, pct: {:.4f}%, bias: {:.3f}, mae: {:.3f}, mse: {:.3f}, pred: {:.3f}, target: {:.3f}\n"
         num_ins = float(self.num_ins)
-        res_str = fmt.format(self.group_name, self.num_ins, self.pct, self.tot_bias / num_ins, self.tot_mae / num_ins,
+        res_str = fmt.format(self.group_name, self.num_ins, self.pct * 100.,
+                             self.tot_bias / num_ins, self.tot_mae / num_ins,
                              self.tot_mse / num_ins, self.tot_pred / num_ins, self.tot_target / num_ins)
         return res_str
 
