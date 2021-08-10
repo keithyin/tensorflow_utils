@@ -135,7 +135,7 @@ def mlp(x, hidden_sizes, activation=tf.nn.relu, use_bias=True):
     if len(hidden_sizes) == 0:
         return x
     assert isinstance(hidden_sizes, list), "hidden_sizes must be list"
-    with tf.variable_scope("mlp"):
+    with tf.variable_scope(name_or_scope=None, default_name="mlp"):
         for units in hidden_sizes:
             x = tf.layers.dense(x, units=units, activation=activation, use_bias=use_bias)
     return x
