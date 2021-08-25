@@ -7,12 +7,12 @@ class MaskedMean(object):
     def masked_mean_3d(inp, mask):
         """
         :param inp: [b, T, num_fea, dim]
-        :param mask: [b, T, num_fea]
+        :param mask: [b, T]
         :return: [b, num_fea, dim]
         """
         assert len(inp.shape) == 4, "invalid shape {}".format(inp)
-        assert len(mask.shape) == 3, "invalid shape {}".format(mask)
-        mask = tf.expand_dims(mask, axis=-1)
+        assert len(mask.shape) == 2, "invalid shape {}".format(mask)
+        mask = tf.expand_dims(tf.expand_dims(mask, axis=-1), axis=-1)
         # [b, T, num_fea, dim] - > [b, num_fea, dim]
         res = tf.reduce_sum(inp * mask, axis=1, keepdims=False)
         # [b, T, num_fea, 1] -> [b, num_fea, 1]

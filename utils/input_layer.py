@@ -16,13 +16,15 @@ class FeaProcessor(object):
         :param pad_val: pad value of var len
         :return: tuple: (inp, mask)
             inp: fea_num = 1 -> [b, T, emb_size], fea_num > 1 -> [b, T, fea_num, emb_size]
-            mask: fea_num = 1 -> [b, T], fea_num > 1 -> [b, T, fea_num]
+            mask: fea_num = 1 -> [b, T], fea_num > 1 -> [b, T]
         """
         if isinstance(inp, sparse_tensor.SparseTensor):
             inp = tf.sparse.to_dense(inp, default_value=pad_val)
         if fea_num > 1:
             inp = tf.reshape(inp, shape=[tf.shape(inp)[0], -1, fea_num])
         mask = tf.cast(tf.not_equal(inp, pad_val), dtype=tf.float32)
+        if len(mask.shape) == 3:
+            mask = tf.reduce_mean(mask, axis=2, keepdims=False)
 
         if lookup_table is not None:
             inp = lookup_table.lookup(inp)
