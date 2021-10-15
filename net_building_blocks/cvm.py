@@ -61,7 +61,8 @@ class ContinuousValueModel(object):
         show_clk_emb = tf.nn.embedding_lookup(self._show_clk_layer, inp)
         log_show = tf.log(show_clk_emb[:, :, 0:1])
         log_ctr = tf.log(show_clk_emb[:, :, 1:2]) - log_show
-        show_clk_info = tf.concat([log_show, log_ctr], axis=2)
+        # update show_clk using self.update_show_clk
+        show_clk_info = tf.stop_gradient(tf.concat([log_show, log_ctr], axis=2))
         if use_cvm:
             cvm = tf.concat([emb, show_clk_info], axis=2)
         else:
