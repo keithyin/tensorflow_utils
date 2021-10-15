@@ -1,4 +1,4 @@
-
+# coding=utf-8
 from __future__ import print_function
 from unittest import TestCase
 import tensorflow as tf
@@ -32,6 +32,7 @@ class Test(TestCase):
         inp = tf.constant(data, dtype=tf.float32, shape=data.shape)
         lam = tf.exp(tf.get_variable("lambda", shape=[], dtype=tf.float32))
         mu = tf.exp(tf.get_variable("mu", shape=[], dtype=tf.float32))
+        # TODO: mu能学出来，lambda学不出来，不知道为啥。。。。。
         loss = tf.reduce_mean(inverse_gaussian_nll_loss(lam, mu, inp))
         train_op = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
         with tf.Session() as sess:
