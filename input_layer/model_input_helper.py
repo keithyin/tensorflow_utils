@@ -254,35 +254,36 @@ class NetInputHelper(object):
         feature_cfg_fields = sorted(feature_config[u'fields'], key=lambda x: x[u"name"])
         tf.logging.info("build_input_emb: feature_items: {}".format(feature_items))
         tf.logging.info("build_input_emb: feature_config: {}".format(feature_cfg_fields))
-        for field in feature_cfg_fields:
-            field = FeatureFieldCfg(field)
-            if field.should_ignore:
-                tf.logging.info("build_input_emb: ignored field {}".format(field.field_name))
+        for field_cfg in feature_cfg_fields:
+            field_cfg = FeatureFieldCfg(field_cfg)
+            if field_cfg.should_ignore:
+                tf.logging.info("build_input_emb: ignored field {}".format(field_cfg.field_name))
                 continue
-            parents = field.parents
+            parents = field_cfg.parents
 
             # **************** process origin feature tensor ****************
             if parents is None:  # if not cross feature
-                if field.field_name not in features:
+                if field_cfg.field_name not in features:
                     if skip_if_not_contain:
                         tf.logging.warn("build_input_emb: [{}] not found in the features :[{}]. so skipped".format(
-                            field.field_name,
+                            field_cfg.field_name,
                             features))
                         continue
                     else:
                         raise ValueError("feature_name:{} not found in features: {}".format(
-                            field.field_name,
+                            field_cfg.field_name,
                             features))
-                ori_feature_tensor = features[field.field_name]
-                feature_tensor = NetInputHelper.get_input_fea_of_interest(field, ori_feature_tensor)
-                if field.boundaries is not None:
-                    feature_tensor = math_ops._bucketize(feature_tensor, field.boundaries,
-                                                         name="bucketize_{}".format(field.field_name))
+                ori_feature_tensor = features[field_cfg.field_name]
+                # ignore the skipped dims
+                feature_tensor = NetInputHelper.get_input_fea_of_interest(field_cfg, ori_feature_tensor)
+                if field_cfg.boundaries is not None:
+                    feature_tensor = math_ops._bucketize(feature_tensor, field_cfg.boundaries,
+                                                         name="bucketize_{}".format(field_cfg.field_name))
                     feature_tensor = tf.cast(feature_tensor, dtype=tf.int64)
-                if field.do_hash:
+                if field_cfg.do_hash:
                     feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed([feature_tensor]))
             else:  # cross features
-                assert field.emb_group_name is not None, "cross features must use embedding"
+                assert field_cfg.emb_group_name is not None, "cross features must use embedding"
                 for p in parents:
                     # p.feature_name != p.feature_name_idx means parent feature is has multi sub field.
                     if p.feature_name != p.feature_name_idx and p.feature_name_idx not in features:
@@ -291,15 +292,16 @@ class NetInputHelper(object):
                             if name not in features:
                                 features[name] = tensor
 
-                ori_feature_tensor = []
+                cross_feature_tensors = []
                 for p in parents:
-                    ori_feature_tensor.append(features[p.feature_name_idx])
-                feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed(ori_feature_tensor))
+                    cross_feature_tensors.append(features[p.feature_name_idx])
+                ori_feature_tensor = cross_feature_tensors
+                feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed(cross_feature_tensors))
 
             # **************** process origin feature tensor DONE ****************
 
             # **************** lookup embedding matrix ***************************
-            emb_group_name = field.emb_group_name
+            emb_group_name = field_cfg.emb_group_name
             print("emb_group_name: {}".format(emb_group_name))
             if emb_group_name is not None:
                 assert emb_group_name in self._embeddings.keys(), """
@@ -312,15 +314,15 @@ class NetInputHelper(object):
                     feature_tensor = feature_tensor % emb_group.num_fea_values
 
                 emb_layer = self._embeddings.get(emb_group_name)
-                if field.var_len_field:
+                if field_cfg.var_len_field:
                     feature_tensor = input_layer_utils.FeaProcessor.var_len_fea_process(
                         feature_tensor,
-                        fea_num=field.num_sub_field_after_skip,
+                        fea_num=field_cfg.num_sub_field_after_skip,
                         lookup_table=None,
                         emb_layer=emb_layer)
 
                     feature_tensor = tf.reshape(
-                        feature_tensor, shape=[-1, np.prod(feature_tensor.shape[1:])], name=field.field_name)
+                        feature_tensor, shape=[-1, np.prod(feature_tensor.shape[1:])], name=field_cfg.field_name)
                 else:
                     feature_tensor = input_layer_utils.FeaProcessor.fix_len_fea_process(
                         feature_tensor,
@@ -330,14 +332,14 @@ class NetInputHelper(object):
             # **************** lookup embedding matrix DONE ***************************
 
             # **************** post process ****************
-            if process_hooks is not None and field.field_name in process_hooks:
-                feature_tensor = process_hooks[field.field_name](feature_tensor)
+            if process_hooks is not None and field_cfg.field_name in process_hooks:
+                feature_tensor = process_hooks[field_cfg.field_name](feature_tensor)
             tf.logging.info("feature_name: {}, before: {}, after: {}".format(
-                field.field_name,
+                field_cfg.field_name,
                 ori_feature_tensor,
                 feature_tensor))
 
-            input_tensors[field.field_name] = feature_tensor
+            input_tensors[field_cfg.field_name] = feature_tensor
 
         assert len(input_tensors) > 0, ""
         feature_items = sorted(list(input_tensors.items()), key=lambda x: x[0])
@@ -367,35 +369,39 @@ class NetInputHelper(object):
         def build_model_input(self):
             1. for multiple fields
             2. use mean pooling for var len field
+            3. iterate feature configs
         def build_single_field_var_len_input(self):
             1. for single fields
             2. just lookup, no other process for emb
-        :param features:
-        :param feature_config:
+            3. find feature config according to features
+        :param features: feature parsed from tf_record
+        :param feature_config: parsed from toml cfg file
         :param process_hook: signature def process_hook(emb, mask) -> (emb, mask)
         """
         assert isinstance(features, dict)
         assert len(features) == 1, "only support single field"
         field_name = list(features.keys())[0]
-        field = InputConfig.get_field_by_name(feature_config, field_name)
-        field = FeatureFieldCfg(field)
-        assert field.var_len_field, "field:{} must be var len field".format(field_name)
+        field_cfg = InputConfig.get_field_by_name(feature_config, field_name)
+        field_cfg = FeatureFieldCfg(field_cfg)
+        assert field_cfg.var_len_field, "field:{} must be var len field".format(field_name)
 
-        emb_group_name = field.emb_group_name
+        emb_group_name = field_cfg.emb_group_name
         assert emb_group_name is not None, "no emb_group for field:{}".format(field_name)
 
         emb_layer = self._embeddings.get(emb_group_name, None)
         assert emb_layer is not None, "{} not found in {}".format(emb_group_name, self._embeddings)
 
-        pad_val = field.pad_val
+        pad_val = field_cfg.pad_val
         assert pad_val is not None, "pad_val not found in field:{}".format(field_name)
-        ori_feature = NetInputHelper.get_input_fea_of_interest(field, features[field_name])
+
+        # ignore the skipped dims.
+        ori_feature = NetInputHelper.get_input_fea_of_interest(field_cfg, features[field_name])
         # print("ori_feature: {}".format(ori_feature))
 
         emb, mask = input_layer_utils.FeaProcessor.var_len_fea_lookup(
             inp=ori_feature,
             pad_val=pad_val,
-            fea_num=field.num_sub_field_after_skip,
+            fea_num=field_cfg.num_sub_field_after_skip,
             emb_layer=emb_layer)
 
         emb, mask = process_hook(emb, mask) if process_hook is not None else (emb, mask)

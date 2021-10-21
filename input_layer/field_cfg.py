@@ -25,7 +25,11 @@ class FeatureFieldCfg(object):
         """
         assert isinstance(field, dict)
         self._field = field
+
+        # Do not need set var_len_field in the toml config file
+        # Judge whether it is a var_len_field according to whether the pad_val is set.!!
         self._var_len_field = False
+
         self._num_sub_field = 1
 
         # you can set skipped_dims in input_layer.toml  to disable sub_field of field
