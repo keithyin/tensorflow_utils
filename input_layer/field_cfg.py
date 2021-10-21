@@ -167,48 +167,6 @@ class FeatureFieldCfg(object):
         if self.boundaries is not None:
             assert self.tot_length == 1
 
-    def populate_fea_col_obj(self):
-        # TODO:::::
-        if self._fea_col_type == "bucketized_column":
-            assert self.boundaries is not None
-            self._fea_col = feature_column.bucketized_column(self.field_name, boundaries=self.boundaries)
-        elif self._fea_col_type == "categorical_column_with_hash_bucket":
-            assert isinstance(self._emb_cfg, EmbGroupCfg)
-            self._fea_col = feature_column.categorical_column_with_hash_bucket(
-                self.field_name, hash_bucket_size=self._emb_cfg.num_fea_values, dtype=self.dtype)
-
-        elif self._fea_col_type == "categorical_column_with_identity":
-            self._fea_col = feature_column.categorical_column_with_identity(self.field_name,
-                                                                            num_buckets=self._emb_cfg.num_fea_values,
-                                                                            default_value=None)
-
-        elif self._fea_col_type == "numeric_column":
-            self._fea_col = feature_column.numeric_column(self.field_name, dtype=self.dtype)
-
-        elif self._fea_col_type == "sequence_categorical_column_with_hash_bucket":
-            self._fea_col = feature_column.sequence_categorical_column_with_hash_bucket(self.field_name,
-                                                                                        self._emb_cfg.num_fea_values,
-                                                                                        dtype=self.dtype)
-        elif self._fea_col_type == "sequence_categorical_column_with_identity":
-            self._fea_col = feature_column.sequence_categorical_column_with_identity(self.field_name,
-                                                                                     self._emb_cfg.num_fea_values,
-                                                                                     default_value=None)
-
-        elif self._fea_col_type == "sequence_numeric_column":
-            self._fea_col = feature_column.sequence_numeric_column(self.field_name)
-
-        elif self._fea_col_type == "crossed_column":
-            assert self._parents is not None
-            parents_fea_names = [p[2] for p in self._parents]
-            hash_bucket_size = 0 if self._emb_cfg.num_fea_values is None else self._emb_cfg.num_fea_values
-            if hash_bucket_size == 0:
-                assert self._emb_cfg.use_hash_emb_table, ""
-            self._fea_col = feature_column.crossed_column(parents_fea_names, hash_bucket_size)
-        else:
-            raise ValueError("fea_col_type:{} is invalid".format(self._fea_col_type))
-
-        return self._fea_col
-
     @staticmethod
     def parse_is_var_len_field(field):
         return True if u"pad_val" in field else False
