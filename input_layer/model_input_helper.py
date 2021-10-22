@@ -487,7 +487,7 @@ if __name__ == '__main__':
     #     features, input_cfg.get_feature_config())
     # print(emb, mask)
 
-    res = net_input_helper.build_input_emb(features, input_cfg.get_feature_config())
+    res = net_input_helper.build_model_input(features, input_cfg.get_feature_config())
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
