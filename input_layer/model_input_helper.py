@@ -14,8 +14,6 @@ from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg, CrossFeaInfo
 
 
 """
-
-
 Usage:
     input_config = InputConfig("input_layer.toml")
     
