@@ -45,17 +45,21 @@ def dict_2_str(inp):
     return o_str
 
 
-def down_sampling_examples(feature_dict, sampling_rate=0.1):
+def down_sampling_examples(feature_dict, labels=None, sampling_rate=0.1):
     """
     down_sampling_examples
     Args:
         feature_dict: feature_dict parsed from tf record
+        labels: label
         sampling_rate: float
 
     Returns:
 
     """
-    assert 1e-6 < sampling_rate < 1, "0.1 < sampling_rate < 1, but got {}".format(sampling_rate)
+    assert 1e-6 < sampling_rate, "0.1 < sampling_rate < 1, but got {}".format(sampling_rate)
+    if sampling_rate > 0.999:
+        return feature_dict, labels
+
     feature_names = feature_dict.keys()
     feature = feature_dict[feature_names[0]]
     batch_size = tf.shape(feature)[0]
@@ -65,8 +69,21 @@ def down_sampling_examples(feature_dict, sampling_rate=0.1):
     indices = tf.range(begin_pos, begin_pos + remained_num)
     down_sampled_feature_dict = {}
     for k, v in feature_dict.items():
-        down_sampled_feature_dict[k] = tf.gather(v, indices)
-    return down_sampled_feature_dict
+        down_sampled_feature_dict[k] = tf.gather(v, indices, name="{}".format(k))
+    if isinstance(labels, dict):
+        down_sampled_label = {}
+        for k, v in labels.items():
+            down_sampled_label[k] = tf.gather(v, indices, name="{}".format(k))
+    elif isinstance(labels, list):
+        down_sampled_label = []
+        for i, v in enumerate(labels):
+            down_sampled_label.append(tf.gather(v, indices, name="label_{}".format(i)))
+    elif labels is None:
+        down_sampled_label = None
+    else:
+        down_sampled_label = tf.gather(labels, indices, name="label")
+
+    return down_sampled_feature_dict, down_sampled_label
 
 
 class PredictUtil(object):
