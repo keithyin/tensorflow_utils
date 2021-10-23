@@ -45,6 +45,30 @@ def dict_2_str(inp):
     return o_str
 
 
+def down_sampling_examples(feature_dict, sampling_rate=0.1):
+    """
+    down_sampling_examples
+    Args:
+        feature_dict: feature_dict parsed from tf record
+        sampling_rate: float
+
+    Returns:
+
+    """
+    assert 1e-6 < sampling_rate < 1, "0.1 < sampling_rate < 1, but got {}".format(sampling_rate)
+    feature_names = feature_dict.keys()
+    feature = feature_dict[feature_names[0]]
+    batch_size = tf.shape(feature)[0]
+    remained_num = tf.cast(tf.floor(tf.cast(batch_size, dtype=tf.float32) * sampling_rate), dtype=tf.int32)
+    remained_num = tf.clip_by_value(remained_num, clip_value_min=1, clip_value_max=batch_size)
+    begin_pos = tf.random_uniform(shape=[], minval=0, maxval=batch_size-remained_num, dtype=tf.int32)
+    indices = tf.range(begin_pos, begin_pos + remained_num)
+    down_sampled_feature_dict = {}
+    for k, v in feature_dict.items():
+        down_sampled_feature_dict[k] = tf.gather(v, indices)
+    return down_sampled_feature_dict
+
+
 class PredictUtil(object):
     def __init__(self, job_name, task_index, estimator, input_fn, output_path, result_to_str_func,
                  model_name,
