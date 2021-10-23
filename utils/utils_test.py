@@ -14,6 +14,7 @@ class Test(TestCase):
         }
 
         feature_dict = down_sampling_examples(feature_dict, sampling_rate=0.5)
+        print(feature_dict)
 
         uniform = tf.random_uniform(shape=[10], minval=0, maxval=10, dtype=tf.int32)
         with tf.Session() as sess:
