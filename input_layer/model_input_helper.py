@@ -241,7 +241,8 @@ class NetInputHelper(object):
         :return dict of concatenate tower embedding
         """
         features = features.copy()
-
+        not_founded_features = []
+        ignored_features = []
         assert len(self._embeddings) > 0, "call build_embeddings first"
         input_tensors = {}
         # some feature may not go into this function, so we iterator features instead of config[u"feature"][u"fields"]
@@ -250,12 +251,12 @@ class NetInputHelper(object):
         feature_items = [(feature_name, ori_feature)
                          for feature_name, ori_feature in feature_items if feature_name not in ("dimensions", u"dp")]
         feature_cfg_fields = sorted(feature_config[u'fields'], key=lambda x: x[u"name"])
-        tf.logging.info("build_input_emb: feature_items: {}".format(feature_items))
-        tf.logging.info("build_input_emb: feature_config: {}".format(feature_cfg_fields))
+        tf.logging.info("build_input_emb.feature_items: {}".format(feature_items))
+        tf.logging.info("build_input_emb.feature_config: {}".format(feature_cfg_fields))
         for field_cfg in feature_cfg_fields:
             field_cfg = FeatureFieldCfg(field_cfg)
             if field_cfg.should_ignore:
-                tf.logging.info("build_input_emb: ignored field {}".format(field_cfg.field_name))
+                ignored_features.append(field_cfg.field_name)
                 continue
             parents = field_cfg.parents
 
@@ -263,9 +264,7 @@ class NetInputHelper(object):
             if parents is None:  # if not cross feature
                 if field_cfg.field_name not in features:
                     if skip_if_not_contain:
-                        tf.logging.warn("build_input_emb: [{}] not found in the features :[{}]. so skipped".format(
-                            field_cfg.field_name,
-                            features))
+                        not_founded_features.append(field_cfg.field_name)
                         continue
                     else:
                         raise ValueError("feature_name:{} not found in features: {}".format(
@@ -341,6 +340,11 @@ class NetInputHelper(object):
 
         assert len(input_tensors) > 0, ""
         feature_items = sorted(list(input_tensors.items()), key=lambda x: x[0])
+
+        tf.logging.warn("build_input_emb: {} not found in the features :[{}]. so skipped".format(
+            not_founded_features,
+            features))
+        tf.logging.warn("build_input_emb: ignored field {}".format(ignored_features))
 
         tf.logging.info("     build_input_emb, input embeddings = *********** \n {} \n********".format(
             "\n".join(["    {} ---> {}".format(name, tensor) for name, tensor in feature_items])))
