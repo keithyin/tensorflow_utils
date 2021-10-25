@@ -45,7 +45,7 @@ def dict_2_str(inp):
     return o_str
 
 
-def down_sampling_examples(feature_dict, labels=None, sampling_rate=0.1):
+def down_sampling_examples(feature_dict, labels=None, sampling_rate=1.0):
     """
     down_sampling_examples
     Args:
@@ -56,7 +56,7 @@ def down_sampling_examples(feature_dict, labels=None, sampling_rate=0.1):
     Returns:
 
     """
-    assert 1e-6 < sampling_rate, "0.1 < sampling_rate < 1, but got {}".format(sampling_rate)
+    assert 1e-6 < sampling_rate, "0.1 < sampling_rate, but got {}".format(sampling_rate)
     if sampling_rate > 0.999:
         return feature_dict, labels
 
