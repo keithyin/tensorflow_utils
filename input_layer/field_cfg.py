@@ -18,6 +18,7 @@ CrossFeaInfo = namedtuple("CrossFeaInfo", ["feature_name", "feature_idx", "featu
 class FeatureFieldCfg(object):
 
     DEFAULT_TOWER_NAME = "default_tower"
+    DEFAULT_FEATURE_GROUP_NAME = "default_group"
 
     def __init__(self, field):
         """
@@ -42,6 +43,7 @@ class FeatureFieldCfg(object):
         self._field_name = None
         self._pad_val = None
         self._tot_length = None
+        self._mean_pooling = True
 
         # if ignore, the corresponding feature of this field will not appear in the model input.
         self._should_ignore = None
@@ -66,7 +68,8 @@ class FeatureFieldCfg(object):
         # this is used for this field belong to which tower.
         # if you don't need multi tower, no need to set it in input_layer.toml
         # NetInputHelper.build_model_input use this field to organise it's output dict
-        self._tower_name = FeatureFieldCfg.DEFAULT_TOWER_NAME
+        self._tower_name = FeatureFieldCfg.DEFAULT_TOWER_NAME  # deprecated !!!! use feature_group instead
+        self._feature_group_name = FeatureFieldCfg.DEFAULT_FEATURE_GROUP_NAME
         self._parse_field_dict()
         self._is_valid_cfg()
 
@@ -151,6 +154,14 @@ class FeatureFieldCfg(object):
     def should_ignore(self):
         return self._should_ignore
 
+    @property
+    def mean_pooling(self):
+        return self._mean_pooling
+
+    @property
+    def feature_group_name(self):
+        return self._feature_group_name
+
     def _parse_field_dict(self):
         self._var_len_field = FeatureFieldCfg.parse_is_var_len_field(field=self._field)
         self._num_sub_field = FeatureFieldCfg.parse_num_sub_field(field=self._field)
@@ -158,6 +169,7 @@ class FeatureFieldCfg(object):
         self._field_name = FeatureFieldCfg.parse_field_name(self._field)
         self._pad_val = FeatureFieldCfg.parse_pad_val(self._field)
         self._tot_length = FeatureFieldCfg.parse_dims(self._field)
+        self._mean_pooling = self._field[u'mean_pooling'] if u'mean_pooling' in self._field else True
         self._remain_dims = FeatureFieldCfg.parse_remained_dims(self._field)
         self._should_ignore = FeatureFieldCfg.parse_should_ignore(self._field)
         self._dtype = FeatureFieldCfg.parse_dtype(field=self._field)
@@ -166,6 +178,8 @@ class FeatureFieldCfg(object):
         self._parents = FeatureFieldCfg.parse_parents_features(self._field)
         self._do_hash = FeatureFieldCfg.parse_do_hash(self._field)
         self._tower_name = FeatureFieldCfg.parse_tower_name(self._field)
+        self._feature_group_name = (FeatureFieldCfg.DEFAULT_FEATURE_GROUP_NAME
+                                    if u'feature_group' not in self._field else self._field[u'feature_group'])
 
     def _is_valid_cfg(self):
         if self.boundaries is not None:

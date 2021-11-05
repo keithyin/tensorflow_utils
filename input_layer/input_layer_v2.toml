@@ -11,6 +11,7 @@
 #   do_hash  = true            do extra hash operation
 #   parents_features = ""
 #   tower = ""                 this is for distinguish different tower features. check input_layer_helper.build_input_emb & input_layer_helper.build_single_field_var_len_input_emb for more info
+#   feature_group = ""         group of feature
 
 # [[embedding.groups]]
 #   name="drug_third_cat_emb_layer": corresponding to feature.fields.emb_group
@@ -58,7 +59,7 @@ name="profile"
 dtype="int64"
 tot_length=3
 emb_group="profile_emb_layer"
-tower = "user"
+feature_group = "user"
 
 [[feature.fields]]
 name="age"
@@ -81,6 +82,23 @@ boundaries=[1, 2, 3]
 emb_group="profile_emb_layer"
 do_hash = true
 
+[[feature.fields]]
+name="wm_click_sku_list"
+dtype="int64"
+tot_length=5
+pad_val=0
+emb_group="profile_emb_layer"
+mean_pooling=false
+feature_group="wm_clk_behavior"
+
+[[feature.fields]]
+name="wm_click_poi_list"
+dtype="int64"
+tot_length=5
+pad_val=0
+emb_group="profile_emb_layer"
+mean_pooling=false
+feature_group="wm_clk_behavior"
 
 [label]
 
@@ -101,28 +119,3 @@ name="profile_emb_layer"
 #use_cvm=true
 num_fea_values=40001
 emb_size=2
-
-[[embedding.groups]]
-name="drug_uv_info_emb_layer"
-num_fea_values=10
-emb_size=4
-
-[[embedding.groups]]
-name="eshow_clk_asso_emb_layer"
-num_fea_values=40
-emb_size=4
-
-[[embedding.groups]]
-name="wm_tag_pref_emb_layer"
-num_fea_values=150
-emb_size=8
-
-[[embedding.groups]]
-name="sg_jd_emb_layer"
-num_fea_values=100
-emb_size=8
-
-[[embedding.groups]]
-name="drug_third_cat_emb_layer"
-num_fea_values=4000
-emb_size=8

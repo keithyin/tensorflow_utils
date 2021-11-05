@@ -11,9 +11,19 @@ from tensorflow.python import math_ops
 from ..net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
 from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg, CrossFeaInfo
-
+from collections import namedtuple
 
 """
+
+Abstraction: 
+    * feature
+        * single value feature: tot_length = 1
+        *          bow feature: tot_length > 1, you should never set num_sub_field on bow feature
+        *     sequence feature: tot_length > 1, pad_val=SomeValue, num_sub_field >= 1
+    * feature_group: feature_group is a feature group, grouping some feature together
+        * can't group sequence feature with bow/singleVal feature!!!
+
+
 Usage:
     input_config = InputConfig("input_layer.toml")
     
@@ -37,6 +47,21 @@ Usage:
     
 """
 
+InputTensorDesc = namedtuple('InputTensorDesc', ['tensor', 'mask'])
+
+
+def is_group_features_valid(grouped_tensors):
+    """
+
+    Args:
+        grouped_tensors: list of InputTensorDesc objects
+
+    Returns:
+        true if all mask is None or all mask is not None
+    """
+    assert isinstance(grouped_tensors[0], InputTensorDesc)
+    bitmap = [t.mask is None for t in grouped_tensors]
+    return sum(bitmap) == 0 or sum(bitmap) == len(bitmap)
 
 class InputConfig(object):
     def __init__(self, config_file):
@@ -236,10 +261,17 @@ class NetInputHelper(object):
 
         :param features: tensor dict. the feature part of parsed_example.
         :param feature_config: feature config
-        :param process_hooks:
+        :param process_hooks: signature func(InputTensorDesc input_tensor_desc) -> InputTensorDesc
         :param skip_if_not_contain: if the feature_config feature not in the features, Raise error or not
-        :return dict of concatenate tower embedding
+        :return
+            dict of concatenate tower embedding. if the tower is sequence feature result[tower] got (feature, mask) pair
+            for example:
+            {
+                "profile": tensor,
+                "sku_click_activity": (tensor, mask)
+            }
         """
+
         features = features.copy()
         not_founded_features = []
         ignored_features = []
@@ -284,8 +316,8 @@ class NetInputHelper(object):
                 for p in parents:
                     # p.feature_name != p.feature_name_idx means parent feature is has multi sub field.
                     if p.feature_name != p.feature_name_idx and p.feature_name_idx not in features:
-                        splitted_feas = utils.split_to_feature_dict(p.feature_name, features[p.feature_name])
-                        for name, tensor in splitted_feas.items():
+                        split_feats = utils.split_to_feature_dict(p.feature_name, features[p.feature_name])
+                        for name, tensor in split_feats.items():
                             if name not in features:
                                 features[name] = tensor
 
@@ -312,19 +344,32 @@ class NetInputHelper(object):
 
                 emb_layer = self._embeddings.get(emb_group_name)
                 if field_cfg.var_len_field:
-                    feature_tensor = input_layer_utils.FeaProcessor.var_len_fea_process(
-                        feature_tensor,
-                        fea_num=field_cfg.num_sub_field_after_skip,
-                        lookup_table=None,
-                        emb_layer=emb_layer)
+                    if field_cfg.mean_pooling:
+                        feature_tensor = input_layer_utils.FeaProcessor.var_len_fea_process(
+                            feature_tensor,
+                            fea_num=field_cfg.num_sub_field_after_skip,
+                            lookup_table=None,
+                            emb_layer=emb_layer,
+                            pad_val=field_cfg.pad_val)
 
-                    feature_tensor = tf.reshape(
-                        feature_tensor, shape=[-1, np.prod(feature_tensor.shape[1:])], name=field_cfg.field_name)
-                else:
+                        feature_tensor = tf.reshape(
+                            feature_tensor, shape=[-1, np.prod(feature_tensor.shape[1:])], name=field_cfg.field_name)
+                        feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=None)
+                    else:  # not do mean pooling
+                        feature_tensor, mask = input_layer_utils.FeaProcessor.var_len_fea_lookup(
+                            feature_tensor,
+                            pad_val=field_cfg.pad_val,
+                            fea_num=field_cfg.num_sub_field_after_skip,
+                            lookup_table=None,
+                            emb_layer=emb_layer)
+                        feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=mask)
+
+                else:  # [b, 1] -> [b, emb_size], [b, n] -> [b, n*emb_size]
                     feature_tensor = input_layer_utils.FeaProcessor.fix_len_fea_process(
                         feature_tensor,
                         lookup_table=None,
                         emb_layer=emb_layer)
+                    feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=None)
 
             # **************** lookup embedding matrix DONE ***************************
 
@@ -349,7 +394,8 @@ class NetInputHelper(object):
         tf.logging.info("     build_input_emb, input embeddings = *********** \n {} \n********".format(
             "\n".join(["    {} ---> {}".format(name, tensor) for name, tensor in feature_items])))
 
-        inp = NetInputHelper.organize_input_emb_with_tower(input_embs=input_tensors, feature_config=feature_config)
+        inp = NetInputHelper.organize_input_emb_with_feature_group(
+            input_embs=input_tensors, feature_config=feature_config)
         tf.logging.info("build_input_emb={}".format(inp))
         return inp
 
@@ -410,28 +456,44 @@ class NetInputHelper(object):
         return emb, mask
 
     @staticmethod
-    def organize_input_emb_with_tower(input_embs, feature_config):
+    def organize_input_emb_with_feature_group(input_embs, feature_config):
         """
-        organize_input_emb_with_tower.
+        organize the input emb according to the tower in the feature_config
         Args:
             input_embs: tensor dict
             feature_config: feature config
         Returns:
-            dict of concatenate tower embedding
+            dict of concatenate tower embedding. if the tower is sequence feature result[tower] got (feature, mask) pair
+            for example:
+            {
+                "profile": tensor,
+                "sku_click_activity": (tensor, mask)
+            }
         """
         assert isinstance(input_embs, dict)
         assert isinstance(feature_config, dict)
         tensor_group = {}
         input_embs = sorted(list(input_embs.items()), key=lambda x: x[0])
         for field_name, tensor in input_embs:
+            assert isinstance(tensor, InputTensorDesc)
             field = InputConfig.get_field_by_name(feature_config, field_name)
             field = FeatureFieldCfg(field)
-            if field.tower_name not in tensor_group:
-                tensor_group[field.tower_name] = []
-            tensor_group[field.tower_name].append(tensor)
+            if field.feature_group_name not in tensor_group:
+                tensor_group[field.feature_group_name] = []
+            tensor_group[field.feature_group_name].append(tensor)
         results = {}
-        for tower_name, tensors in tensor_group.items():
-            results[tower_name] = tf.concat(tensors, axis=-1, name="input_embedding_{}".format(tower_name))
+        for feature_group_name, tensors in tensor_group.items():
+            assert is_group_features_valid(tensors), """invalid grouped tensors. 
+                    seq feature cant share the same group with bow/singleVal feature
+                    {}""".format(tensors)
+
+            concatenated_tensors = tf.concat([t.tensor for t in tensors], axis=-1,
+                                             name="input_embedding_{}".format(feature_group_name))
+            if tensors[0].mask is None:
+                results[feature_group_name] = concatenated_tensors
+            else:
+                results[feature_group_name] = (concatenated_tensors, tensors[0].mask)
+
         return results
 
     @staticmethod
@@ -471,28 +533,28 @@ class NetInputHelper(object):
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.DEBUG)
-    input_cfg = InputConfig("src/input_layer/input_layer_v08_02.toml")
+    input_cfg = InputConfig("src/tensorflow_utils/input_layer/input_layer_v2.toml")
     example_desc = input_cfg.build_train_example_feature_description()
     serving_input = input_cfg.build_serving_input_receiver()
     # print(example_desc)
     # print(serving_input)
     print(serving_input)
-    exit(0)
 
     net_input_helper = NetInputHelper(input_cfg.get_emb_config(), is_train=True)
     features = {
         "profile": tf.constant([[1, 11, 21], [2, 12, 22]], dtype=tf.int64),
         "age": tf.constant([[10], [20]], dtype=tf.int64),
-        "prices": tf.constant([[2.0], [1.9]], dtype=tf.float32)
+        "prices": tf.constant([[2.0], [1.9]], dtype=tf.float32),
+        "wm_click_sku_list": tf.constant([[1, 2, 3, 0, 0], [2, 3, 4, 5, 0]], dtype=tf.int64),
+        "wm_click_poi_list": tf.constant([[1, 2, 3, 0, 0], [2, 3, 4, 5, 0]], dtype=tf.int64),
     }
     # emb, mask = net_input_helper.build_single_field_var_len_input_emb(
     #     features, input_cfg.get_feature_config())
     # print(emb, mask)
 
     res = net_input_helper.build_model_input(features, input_cfg.get_feature_config())
-
+    print(res)
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         print(sess.run(res))
         # print(sess.run(str_cat))
-
