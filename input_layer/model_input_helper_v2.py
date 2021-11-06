@@ -21,7 +21,7 @@ Abstraction:
         *          bow feature: tot_length > 1, you should never set num_sub_field on bow feature
         *     sequence feature: tot_length > 1, pad_val=SomeValue, num_sub_field >= 1
     * feature_group: feature_group is a feature group, grouping some feature together
-        * can't group sequence feature with bow/singleVal feature!!!
+        * can't group non-mean-pooled sequence feature with bow/singleVal feature!!!
 
 
 Usage:
@@ -484,7 +484,7 @@ class NetInputHelper(object):
         results = {}
         for feature_group_name, tensors in tensor_group.items():
             assert is_group_features_valid(tensors), """invalid grouped tensors. 
-                    seq feature cant share the same group with bow/singleVal feature
+                    non-mean-pooled seq feature can't share the same feature_group with bow/singleVal feature
                     {}""".format(tensors)
 
             concatenated_tensors = tf.concat([t.tensor for t in tensors], axis=-1,
