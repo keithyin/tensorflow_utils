@@ -362,6 +362,9 @@ class NetInputHelper(object):
                             fea_num=field_cfg.num_sub_field_after_skip,
                             lookup_table=None,
                             emb_layer=emb_layer)
+                        ft_shape = tf.shape(feature_tensor)
+                        feature_tensor = tf.reshape(
+                            feature_tensor, shape=[ft_shape[0], ft_shape[1], np.prod(feature_tensor.shape[2:])])
                         feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=mask)
 
                 else:  # [b, 1] -> [b, emb_size], [b, n] -> [b, n*emb_size]
