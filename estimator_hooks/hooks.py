@@ -373,17 +373,22 @@ class RegressionHook(session_run_hook.SessionRunHook):
             tot_bias = 0
             tot_mae = 0
             tot_mse = 0
+            tot_pred = 0
+            tot_target = 0
             for group_info in self._group_infos.values():
                 tot_ins += group_info.num_ins
                 tot_bias += group_info.tot_bias
                 tot_mae += group_info.tot_mae
                 tot_mse += group_info.tot_mse
+                tot_pred += group_info.tot_pred
+                tot_target += group_info.tot_target
             if tot_ins == 0:
                 return
 
             tot_ins = float(tot_ins)
             info = """RegressionMetrics: {}, 
-            \r   global_step: {}, inner_step: {}, tot_ins: {}, mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f}
+            \r   global_step: {}, inner_step: {}, tot_ins: {}, mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f},
+            \r              mean_pred: {:.5f}, mean_target: {:.5f}
             \r ------------------------------------------------
             \r""".format(
                 self._name,
@@ -392,7 +397,9 @@ class RegressionHook(session_run_hook.SessionRunHook):
                 int(tot_ins),
                 tot_bias / tot_ins,
                 tot_mae / tot_ins,
-                tot_mse / tot_ins)
+                tot_mse / tot_ins,
+                tot_pred / tot_ins,
+                tot_target / tot_ins)
             group_infos = sorted(list(self._group_infos.items()), key=lambda x: x[1].num_ins, reverse=True)
 
             for group_info in group_infos:
