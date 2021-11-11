@@ -63,6 +63,7 @@ def is_group_features_valid(grouped_tensors):
     bitmap = [t.mask is None for t in grouped_tensors]
     return sum(bitmap) == 0 or sum(bitmap) == len(bitmap)
 
+
 class InputConfig(object):
     def __init__(self, config_file):
         """
