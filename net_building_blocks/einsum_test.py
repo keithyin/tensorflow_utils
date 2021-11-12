@@ -3,7 +3,10 @@ from __future__ import print_function
 from unittest import TestCase
 import tensorflow as tf
 from .mlp import n_experts
-from .mtl import mmoe
+from .mtl import mmoe, mmoe_v2, mmoe_v3
+import time
+import numpy as np
+
 
 class Test(TestCase):
 
@@ -43,4 +46,42 @@ class Test(TestCase):
         print(x)
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            print(sess.run(x))
+            all_times = []
+            for i in range(50):
+                begin_t = time.time()
+                for _ in range(50000):
+                    sess.run(x)
+                all_times.append(time.time() - begin_t)
+            print("v1_time: {}".format(np.array(all_times).mean()))
+
+    def test_mmoe_v2(self):
+        tf.reset_default_graph()
+        x = tf.constant([[1, 2]], dtype=tf.float32)
+        x = mmoe_v2(x, num_experts=3, num_tasks=2, expert_hidden_sizes=[2, 2, 2], task_specific_hidden_sizes=[2, 1])
+        print(x)
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+
+            all_times = []
+            for i in range(100):
+                begin_t = time.time()
+                for _ in range(50000):
+                    sess.run(x)
+                all_times.append(time.time() - begin_t)
+            print("v2_time: {}".format(np.array(all_times).mean()))
+
+    def test_mmoe_v3(self):
+        tf.reset_default_graph()
+        x = tf.constant([[1, 2]], dtype=tf.float32)
+        x = mmoe_v3(x, num_experts=3, num_tasks=2, expert_hidden_sizes=[2, 2, 2], task_specific_hidden_sizes=[2, 1])
+        print(x)
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+
+            all_times = []
+            for i in range(100):
+                begin_t = time.time()
+                for _ in range(50000):
+                    sess.run(x)
+                all_times.append(time.time() - begin_t)
+            print("v3_time: {}".format(np.array(all_times).mean()))
