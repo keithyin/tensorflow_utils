@@ -215,33 +215,36 @@ class NetInputHelper(object):
             self._embeddings = {}
             for group in self._emb_config[u"groups"]:
                 group = EmbGroupCfg(group)
-                name = group.group_name
-                num_fea_values = group.num_fea_values
-                emb_size = group.emb_size
-                if name in self._embeddings:
-                    raise ValueError("duplicated embedding group name '{}'".format(name))
-                if group.use_cvm:
-                    raise ValueError("has bug yet")
-                    # self._embeddings[name] = ContinuousValueModel(name=name, input_dim=num_fea_values,
-                    #                                               output_dim=emb_size)
-                else:
-                    if group.use_hash_emb_table:
-                        from tensorflow.contrib.lookup.lookup_ops import get_mutable_dense_hashtable
-                        initializer = tf.truncated_normal_initializer(0.0, 1e-2) if is_train else tf.zeros_initializer()
-                        self._embeddings[name] = get_mutable_dense_hashtable(
-                            key_dtype=tf.int64,
-                            value_dtype=tf.float32,
-                            shape=tf.TensorShape([emb_size]),
-                            name="{}_emb_layer".format(name),
-                            initializer=initializer,
-                            shard_num=shard_num)
-
+                names = group.group_name
+                # if multiple emb group share the same config except name, we can use one EmbGroup to config it
+                # the name will be like 'age,gender'
+                for name in [name.strip() for name in names.split(",") if name.strip() != ""]:
+                    num_fea_values = group.num_fea_values
+                    emb_size = group.emb_size
+                    if name in self._embeddings:
+                        raise ValueError("duplicated embedding group name '{}'".format(name))
+                    if group.use_cvm:
+                        raise ValueError("has bug yet")
+                        # self._embeddings[name] = ContinuousValueModel(name=name, input_dim=num_fea_values,
+                        #                                               output_dim=emb_size)
                     else:
-                        self._embeddings[name] = tf.get_variable(
-                            name=name, shape=[num_fea_values, emb_size],
-                            dtype=tf.float32,
-                            partitioner=tf.fixed_size_partitioner(shard_num, axis=0),
-                            initializer=tf.random_uniform_initializer())
+                        if group.use_hash_emb_table:
+                            from tensorflow.contrib.lookup.lookup_ops import get_mutable_dense_hashtable
+                            initializer = tf.truncated_normal_initializer(0.0, 1e-2) if is_train else tf.zeros_initializer()
+                            self._embeddings[name] = get_mutable_dense_hashtable(
+                                key_dtype=tf.int64,
+                                value_dtype=tf.float32,
+                                shape=tf.TensorShape([emb_size]),
+                                name="{}_emb_layer".format(name),
+                                initializer=initializer,
+                                shard_num=shard_num)
+
+                        else:
+                            self._embeddings[name] = tf.get_variable(
+                                name=name, shape=[num_fea_values, emb_size],
+                                dtype=tf.float32,
+                                partitioner=tf.fixed_size_partitioner(shard_num, axis=0),
+                                initializer=tf.random_uniform_initializer())
 
     def get_emb_group_cfg_by_name(self, name):
         for group in self._emb_config[u"groups"]:
