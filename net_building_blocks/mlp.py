@@ -93,7 +93,7 @@ def n_experts_v3(x, hidden_sizes, num_experts, activation=tf.nn.relu, last_activ
     """
     generate n experts net
     Args:
-        x: input, [n, dim] or [n, dim, num_experts]
+        x: input, [n, dim] or [n, num_experts, dim]
         hidden_sizes: list of hidden size
         num_experts: num_experts, if only 1 expert, using mlp() instead
         activation: activation function
