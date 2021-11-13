@@ -103,6 +103,6 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
 
         # [n, num_tasks, dim]
         x = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks,
-                         last_activation=tf.nn.sigmoid)
+                         last_activation=None)
         gate = tf.einsum("net->nte", gate)
     return x, gate
