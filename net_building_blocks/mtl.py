@@ -9,6 +9,20 @@ from .mlp import n_experts, n_experts_v2, n_experts_v3
 
 # https://dl.acm.org/doi/pdf/10.1145/3219819.3220007    50000iter 10s
 def mmoe(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, name_or_scope=None):
+    """
+    mmoe
+    Args:
+        x: [b, dim]
+        num_experts: int
+        num_tasks:  int
+        expert_hidden_sizes: list of int
+        task_specific_hidden_sizes:  list of int
+        name_or_scope:
+    Returns:
+        (x, gates)
+            x: [n, dim, num_task]
+            gates: [n, num_task, num_experts]
+    """
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="mmoe"):
         gate_w = tf.get_variable(name="gate_w", shape=[x.shape[1], num_tasks, num_experts],
                                  initializer=tf.initializers.glorot_normal)
@@ -28,6 +42,20 @@ def mmoe(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_si
 
 # https://dl.acm.org/doi/pdf/10.1145/3219819.3220007   50000iter 9.94
 def mmoe_v2(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, name_or_scope=None):
+    """
+    mmoe
+    Args:
+        x: [b, dim]
+        num_experts: int
+        num_tasks:  int
+        expert_hidden_sizes: list of int
+        task_specific_hidden_sizes:  list of int
+        name_or_scope:
+    Returns:
+        (x, gates)
+            x: [n, dim, num_task]
+            gates: [n, num_task, num_experts]
+    """
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="mmoe"):
         gate_w = tf.get_variable(name="gate_w", shape=[x.shape[1], num_tasks, num_experts],
                                  initializer=tf.initializers.glorot_normal)
@@ -47,11 +75,25 @@ def mmoe_v2(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
 
 # https://dl.acm.org/doi/pdf/10.1145/3219819.3220007   50000iter 9.45
 def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, name_or_scope=None):
+    """
+    mmoe
+    Args:
+        x: [b, dim]
+        num_experts: int
+        num_tasks:  int
+        expert_hidden_sizes: list of int
+        task_specific_hidden_sizes:  list of int
+        name_or_scope:
+    Returns:
+        (x, gates)
+            x: [n, num_tasks, dim]
+            gates: [n, num_experts, num_task]
+    """
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="mmoe"):
         gate_w = tf.get_variable(name="gate_w", shape=[num_experts, num_tasks, x.shape[1]],
                                  initializer=tf.initializers.glorot_normal)
         # n, num_experts, num_tasks
-        gate = tf.math.softmax(tf.einsum("ni,eti->net", x, gate_w), axis=-1)
+        gate = tf.math.softmax(tf.einsum("ni,eti->net", x, gate_w), axis=1)
 
         # [n, num_experts, dim]
         experts = n_experts_v3(x, expert_hidden_sizes, num_experts)
