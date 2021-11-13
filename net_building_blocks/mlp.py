@@ -60,7 +60,7 @@ def n_experts(x, hidden_sizes, num_experts, activation=tf.nn.relu, last_activati
     return x
 
 
-def n_experts_v2(x, hidden_sizes, num_experts, activation=tf.nn.relu, last_activation=tf.nn.sigmoid,
+def n_experts_v2(x, hidden_sizes, num_experts, activation=tf.nn.relu, last_activation=tf.nn.relu,
                  use_bias=True, name_or_scope=None):
     """
     generate n experts net
