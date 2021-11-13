@@ -87,7 +87,7 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
     Returns:
         (x, gates)
             x: [n, num_tasks, dim]
-            gates: [n, num_experts, num_task]
+            gates: [n, num_tasks, num_experts]
     """
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="mmoe"):
         gate_w = tf.get_variable(name="gate_w", shape=[num_experts, num_tasks, x.shape[1]],
@@ -102,5 +102,7 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
         x = tf.einsum("net,ned->ntd", gate, experts)
 
         # [n, num_tasks, dim]
-        x = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks, last_activation=tf.nn.sigmoid)
+        x = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks,
+                         last_activation=tf.nn.sigmoid)
+        gate = tf.einsum("net->nte", gate)
     return x, gate
