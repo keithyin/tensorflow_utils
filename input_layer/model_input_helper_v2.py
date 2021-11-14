@@ -12,6 +12,7 @@ from ..net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
 from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg, CrossFeaInfo
 from collections import namedtuple
+from tensorflow.python.ops import gen_math_ops
 
 """
 
@@ -230,7 +231,8 @@ class NetInputHelper(object):
                     else:
                         if group.use_hash_emb_table:
                             from tensorflow.contrib.lookup.lookup_ops import get_mutable_dense_hashtable
-                            initializer = tf.truncated_normal_initializer(0.0, 1e-2) if is_train else tf.zeros_initializer()
+                            initializer = tf.truncated_normal_initializer(0.0,
+                                                                          1e-2) if is_train else tf.zeros_initializer()
                             self._embeddings[name] = get_mutable_dense_hashtable(
                                 key_dtype=tf.int64,
                                 value_dtype=tf.float32,
@@ -310,8 +312,8 @@ class NetInputHelper(object):
                 # ignore the skipped dims
                 feature_tensor = NetInputHelper.get_input_fea_of_interest(field_cfg, ori_feature_tensor)
                 if field_cfg.boundaries is not None:
-                    feature_tensor = math_ops._bucketize(feature_tensor, field_cfg.boundaries,
-                                                         name="bucketize_{}".format(field_cfg.field_name))
+                    feature_tensor = gen_math_ops.bucketize(feature_tensor, field_cfg.boundaries,
+                                                            name="bucketize_{}".format(field_cfg.field_name))
                     feature_tensor = tf.cast(feature_tensor, dtype=tf.int64)
                 if field_cfg.do_hash:
                     feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed([feature_tensor]))
