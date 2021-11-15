@@ -182,8 +182,7 @@ class FeatureFieldCfg(object):
                                     if u'feature_group' not in self._field else self._field[u'feature_group'])
 
     def _is_valid_cfg(self):
-        if self.boundaries is not None:
-            assert self.tot_length == 1
+        return True
 
     @staticmethod
     def parse_is_var_len_field(field):

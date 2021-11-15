@@ -106,3 +106,7 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
                          last_activation=None)
         gate = tf.einsum("net->nte", gate)
     return x, gate
+
+
+def ple():
+    pass

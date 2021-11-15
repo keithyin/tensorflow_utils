@@ -216,11 +216,10 @@ class NetInputHelper(object):
             self._embeddings = {}
             for group in self._emb_config[u"groups"]:
                 group = EmbGroupCfg(group)
-                names = group.group_name
+                names = group.group_name.strip()
                 # if multiple emb group share the same config except name, we can use one EmbGroup to config it
                 # the name will be like 'age,gender'
                 for name in [name.strip() for name in names.split(",") if name.strip() != ""]:
-                    num_fea_values = group.num_fea_values
                     emb_size = group.emb_size
                     if name in self._embeddings:
                         raise ValueError("duplicated embedding group name '{}'".format(name))
@@ -242,6 +241,7 @@ class NetInputHelper(object):
                                 shard_num=shard_num)
 
                         else:
+                            num_fea_values = group.num_fea_values
                             self._embeddings[name] = tf.get_variable(
                                 name=name, shape=[num_fea_values, emb_size],
                                 dtype=tf.float32,
@@ -251,9 +251,13 @@ class NetInputHelper(object):
     def get_emb_group_cfg_by_name(self, name):
         for group in self._emb_config[u"groups"]:
             group = EmbGroupCfg(group)
-            if group.group_name == name:
+            if isinstance(group.group_name, unicode):
+                name_list = map(str.strip, group.group_name.encode("utf8").split(","))
+            else:
+                name_list = map(str.strip, group.group_name.split(","))
+            if name in name_list:
                 return group
-        raise ValueError("emb_group_name: {} not found in emb_config: {}".format(name, self._emb_config))
+        raise ValueError("emb_group_name: [{}] not found in emb_config: {}".format(name, self._emb_config))
 
     def get_embeddings(self):
         assert len(self._embeddings) > 0, "call build_embedding() first"
