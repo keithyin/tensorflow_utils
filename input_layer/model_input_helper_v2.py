@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 
-import toml
+from src import toml
 import tensorflow as tf
 from tensorflow import initializers
 from ..utils import input_layer as input_layer_utils

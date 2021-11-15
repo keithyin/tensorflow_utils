@@ -1,6 +1,6 @@
 
 from __future__ import print_function
-import toml
+import src.toml as toml
 import tensorflow as tf
 from tensorflow import feature_column
 from collections import namedtuple
