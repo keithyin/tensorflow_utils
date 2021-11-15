@@ -108,5 +108,38 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
     return x, gate
 
 
-def ple():
+def cgc(x, num_experts, num_tasks, expert_hidden_sizes):
+    """
+
+    Args:
+        x:
+        num_experts:
+        num_tasks:
+        expert_hidden_sizes:
+
+    Returns:
+
+    """
+    # shared_experts = n_experts_v3(x, )
+    pass
+
+
+def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, num_cgc_layers, name_or_scope=None):
+    """
+
+    Args:
+        x:
+        num_experts:
+        num_tasks:
+        expert_hidden_sizes:
+        task_specific_hidden_sizes:
+        num_cgc_layers:
+        name_or_scope:
+
+    Returns:
+
+    """
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="progressive_layered_extraction"):
+
+        pass
     pass

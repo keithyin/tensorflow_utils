@@ -35,7 +35,11 @@ class FeaProcessor(object):
             # if isinstance(first_emb_, tf.python.ops.lookup_ops.MutableDenseHashTableV2):
             #     inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp)
             # else:
+
+            # NOTE: 有一些特征的默认值为-1，但是对于该 op 来说，如果特征值为-1的话，会报错，所以就在这 hard code 一下了。
+            inp += 1
             try:
+                #
                 inp = tf.nn.embedding_lookup(emb_layer, inp)
             except:
                 inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp, threshold=50)
@@ -51,7 +55,8 @@ class FeaProcessor(object):
             inp = lookup_table.lookup(inp)
         if emb_layer is not None:
             assert not isinstance(emb_layer, tf.keras.layers.Embedding), "don't support keras"
-
+            # NOTE: 有一些特征的默认值为-1，但是对于该 op 来说，如果特征值为-1的话，会报错，所以就在这 hard code 一下了。
+            inp += 1
             try:
                 inp = tf.nn.embedding_lookup(emb_layer, inp)
             except:
