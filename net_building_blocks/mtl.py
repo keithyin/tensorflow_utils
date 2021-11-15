@@ -108,7 +108,7 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
     return x, gate
 
 
-def cgc(x, num_experts, num_tasks, expert_hidden_sizes):
+def cgc(x, num_experts, num_tasks, expert_hidden_sizes, is_first_cgc_layer, is_last_cgc_layer):
     """
 
     Args:
@@ -116,11 +116,21 @@ def cgc(x, num_experts, num_tasks, expert_hidden_sizes):
         num_experts:
         num_tasks:
         expert_hidden_sizes:
-
+        is_first_cgc_layer:
+        is_last_cgc_layer:
     Returns:
 
     """
-    # shared_experts = n_experts_v3(x, )
+    # [n, num_experts, dim]
+    expert_groups = [n_experts_v3(x, expert_hidden_sizes, num_experts=num_experts) for _ in range(num_tasks + 1)]
+    shared_experts = [expert_groups[0:1]] * num_tasks
+    tasks_experts = expert_groups[1:]
+    for task_and_shared_experts in zip(shared_experts, tasks_experts):
+        # [n, num_e, dim]
+        se = task_and_shared_experts[0]
+        te = task_and_shared_experts[1]
+
+
     pass
 
 
