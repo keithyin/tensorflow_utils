@@ -4,6 +4,7 @@ Multi-Task Learning
 
 from __future__ import print_function
 import tensorflow as tf
+from tensorflow import layers
 from .mlp import n_experts, n_experts_v2, n_experts_v3
 
 
@@ -108,32 +109,44 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
     return x, gate
 
 
-def cgc(x, num_experts, num_tasks, expert_hidden_sizes, is_first_cgc_layer, is_last_cgc_layer, name_or_scope):
+def cgc(input_list, num_experts, num_tasks, expert_hidden_sizes, name_or_scope=None):
     """
 
     Args:
-        x: [b, dim]
+        input_list: list of [b, dim] tensor, len(input_list) == num_tasks + 1. [shared_inp, t0_inp, t1_inp, ...]
         num_experts:
         num_tasks:
         expert_hidden_sizes:
-        is_first_cgc_layer:
-        is_last_cgc_layer:
+        name_or_scope:
     Returns:
-
+        list of tensors [b, dim].   [expert_output, t0_output, t1_output, ...]
     """
+    assert len(input_list) == num_tasks + 1
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="cgc"):
 
         # [n, num_experts, dim]
-        expert_groups = [n_experts_v3(x, expert_hidden_sizes, num_experts=num_experts) for _ in range(num_tasks + 1)]
-        shared_experts = [expert_groups[0:1]] * num_tasks
+        expert_groups = [n_experts_v3(input_list[i], expert_hidden_sizes, num_experts=num_experts) for i in range(num_tasks + 1)]
+        shared_experts = [expert_groups[0]] * num_tasks
         tasks_experts = expert_groups[1:]
-        for task_and_shared_experts in zip(shared_experts, tasks_experts):
+
+        # task output
+        tasks_outputs = []
+        for i, task_and_shared_experts in enumerate(zip(shared_experts, tasks_experts), start=1):
             # [n, num_e, dim]
             se = task_and_shared_experts[0]
             te = task_and_shared_experts[1]
+            e = tf.concat([se, te], axis=1)
+            # [n, 2*num_e]
+            gate = layers.dense(input_list[i], units=2*num_experts, use_bias=False, activation=tf.nn.softmax)
+            out = tf.einsum("ne,ned->nd", gate, e)
+            tasks_outputs.append(out)
 
-
-    pass
+        # expert_out
+        all_experts = tf.concat(expert_groups, axis=1)
+        shared_exp_gates = layers.dense(input_list[0], units=(num_tasks+1) * num_experts,
+                                        activation=tf.nn.softmax, use_bias=False)
+        expert_output = tf.einsum("ne,ned->nd", shared_exp_gates, all_experts)
+    return [expert_output] + tasks_outputs
 
 
 def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, num_cgc_layers, name_or_scope=None):
@@ -151,7 +164,12 @@ def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_siz
     Returns:
 
     """
+    x = [x] * (num_tasks + 1)
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="progressive_layered_extraction"):
+        for i in range(num_cgc_layers):
+            x = cgc(x, num_experts, num_tasks, expert_hidden_sizes)
 
-        pass
-    pass
+        x = tf.stack(x[1:], axis=1)
+        logit = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks, last_activation=None)
+    logit = tf.squeeze(logit, axis=-1)
+    return logit
