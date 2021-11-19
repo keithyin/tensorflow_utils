@@ -125,17 +125,16 @@ def cgc(input_list, num_experts, num_tasks, expert_hidden_sizes, name_or_scope=N
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="cgc"):
 
         # [n, num_experts, dim]
-        expert_groups = [n_experts_v3(input_list[i], expert_hidden_sizes, num_experts=num_experts) for i in range(num_tasks + 1)]
+        expert_groups = [n_experts_v3(input_list[i], expert_hidden_sizes, num_experts=num_experts)
+                         for i in range(num_tasks + 1)]
         shared_experts = [expert_groups[0]] * num_tasks
         tasks_experts = expert_groups[1:]
 
         # task output
         tasks_outputs = []
         for i, task_and_shared_experts in enumerate(zip(shared_experts, tasks_experts), start=1):
-            # [n, num_e, dim]
-            se = task_and_shared_experts[0]
-            te = task_and_shared_experts[1]
-            e = tf.concat([se, te], axis=1)
+            # [n, 2*num_e, dim]
+            e = tf.concat(task_and_shared_experts, axis=1)
             # [n, 2*num_e]
             gate = layers.dense(input_list[i], units=2*num_experts, use_bias=False, activation=tf.nn.softmax)
             out = tf.einsum("ne,ned->nd", gate, e)
@@ -166,7 +165,7 @@ def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_siz
     """
     x = [x] * (num_tasks + 1)
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="progressive_layered_extraction"):
-        for i in range(num_cgc_layers):
+        for _ in range(num_cgc_layers):
             x = cgc(x, num_experts, num_tasks, expert_hidden_sizes)
 
         x = tf.stack(x[1:], axis=1)
