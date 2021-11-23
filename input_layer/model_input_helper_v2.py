@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from src import toml
+import json
 import tensorflow as tf
 from tensorflow import initializers
 from ..utils import input_layer as input_layer_utils
@@ -15,7 +16,6 @@ from collections import namedtuple
 from tensorflow.python.ops import gen_math_ops
 
 """
-
 Abstraction: 
     * feature
         * single value feature: tot_length = 1
@@ -25,6 +25,33 @@ Abstraction:
         * can't group non-mean-pooled sequence feature with bow/singleVal feature!!!
 
 
+About Config: toml or json is ok
+    toml:
+        [feature]
+        [[feature.fields]]
+        ...
+        
+        [label]
+        [[label.fields]]
+        ...
+        
+        [embedding]
+        [[embedding.groups]]
+        ...
+    
+    json:
+        {
+            "feature":{
+                "fields": [{}, {}]
+            },
+            "label": {
+                "fields": [{}, {}]
+            },
+            "embedding": {
+                "groups": [{}, {}]
+            }
+        }
+        
 Usage:
     input_config = InputConfig("input_layer.toml")
     
@@ -75,7 +102,11 @@ class InputConfig(object):
             3. build_serving_input_receiver
         :param config_file: toml config file path
         """
-        self._config = toml.load(config_file)
+        if config_file.endswith("toml"):
+            self._config = toml.load(config_file)
+        else:
+            with open(config_file, mode="r") as config_file:
+                self._config = json.load(config_file)
         assert u"feature" in self._config
         self._feature_config = self._config[u"feature"]
         assert u"label" in self._config
