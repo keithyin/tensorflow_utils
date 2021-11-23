@@ -2,16 +2,14 @@
 
 from __future__ import print_function
 
-from src import toml
+from .. import toml
 import json
 import tensorflow as tf
-from tensorflow import initializers
 from ..utils import input_layer as input_layer_utils
 from ..utils import utils
-from tensorflow.python import math_ops
 from ..net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
-from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg, CrossFeaInfo
+from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg
 from collections import namedtuple
 from tensorflow.python.ops import gen_math_ops
 
