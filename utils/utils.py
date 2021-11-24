@@ -5,6 +5,26 @@ from datetime import datetime
 import os
 
 
+def dict_or_list_2_tuple_2_str(inp):
+    """
+    dict_or_list_2_tuple_2_str
+    Args:
+        inp: dict or list of 2-tuple
+
+    Returns:
+        formatted string
+    """
+    if isinstance(inp, dict):
+        inp = sorted(list(inp.items()), key=lambda x: x[0])
+    else:
+        inp = sorted(inp, key=lambda x: x[0])
+    out_str = "\n"
+    for k, v in inp:
+        one_line = "{} ----> {}\n".format(k, v)
+        out_str += one_line
+    return out_str
+
+
 def static_vocab_table_with_kv_init(keys, num_oov_buckets=10):
     table = tf.lookup.StaticVocabularyTable(
         tf.lookup.KeyValueTensorInitializer(
@@ -65,7 +85,7 @@ def down_sampling_examples(feature_dict, labels=None, sampling_rate=1.0):
     batch_size = tf.shape(feature)[0]
     remained_num = tf.cast(tf.floor(tf.cast(batch_size, dtype=tf.float32) * sampling_rate), dtype=tf.int32)
     remained_num = tf.clip_by_value(remained_num, clip_value_min=1, clip_value_max=batch_size)
-    begin_pos = tf.random_uniform(shape=[], minval=0, maxval=batch_size-remained_num, dtype=tf.int32)
+    begin_pos = tf.random_uniform(shape=[], minval=0, maxval=batch_size - remained_num, dtype=tf.int32)
     indices = tf.range(begin_pos, begin_pos + remained_num)
     down_sampled_feature_dict = {}
     for k, v in feature_dict.items():
@@ -123,7 +143,7 @@ class PredictUtil(object):
         for i, v in enumerate(self._estimator.predict(self._input_fn,
                                                       predict_keys=self._predict_keys,
                                                       checkpoint_path=self._checkpoint_path)):
-            if (i+1) % self._num_row_per_file == 0:
+            if (i + 1) % self._num_row_per_file == 0:
                 writer.flush()
                 writer.close()
                 part_idx += 1

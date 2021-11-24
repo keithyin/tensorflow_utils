@@ -75,6 +75,7 @@ tot_length=1
 emb_group="profile_emb_layer"
 
 [[feature.fields]]
+ignore=true
 name="prices"
 dtype="float32"
 tot_length=1

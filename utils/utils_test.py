@@ -3,6 +3,7 @@ from __future__ import print_function
 import tensorflow as tf
 from unittest import TestCase
 from utils import down_sampling_examples
+from utils import dict_or_list_2_tuple_2_str
 
 
 class Test(TestCase):
@@ -20,3 +21,9 @@ class Test(TestCase):
         with tf.Session() as sess:
             print(sess.run(feature_dict))
             print(sess.run(uniform))
+
+    def test_print_helper(self):
+        a = {"a": 1, "c": 2, "b": 3}
+        print(dict_or_list_2_tuple_2_str(a))
+        c = [(1, 3), (2, 4), (3, 5)]
+        print(dict_or_list_2_tuple_2_str(c))

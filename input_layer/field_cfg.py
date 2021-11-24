@@ -269,9 +269,9 @@ class FeatureFieldCfg(object):
         for item in items:
             sub_items = item.split(":")
             fea_name = sub_items[0]
-            fea_idx = 0
+            fea_idx = None
             if len(sub_items) > 1:
-                fea_idx = sub_items[1]
+                fea_idx = int(sub_items[1])
             # we build {'${fea_name}_idx_${fea_idx}': tensor} manually
             if len(sub_items) == 1:
                 parents.append(CrossFeaInfo(feature_name=fea_name, feature_idx=fea_idx, feature_name_idx=fea_name))

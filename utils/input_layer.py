@@ -18,13 +18,30 @@ class FeaProcessor(object):
             inp: fea_num = 1 -> [b, T, emb_size], fea_num > 1 -> [b, T, fea_num, emb_size]
             mask: fea_num = 1 -> [b, T], fea_num > 1 -> [b, T]
         """
+        out, mask = FeaProcessor.var_len_fea_lookup_v2(inp, pad_val, fea_num, lookup_table, emb_layer)
+        if len(mask.shape) == 3:
+            mask = tf.reduce_mean(mask, axis=-1, keep_dims=False, name="mask")
+        return out, mask
+
+    @staticmethod
+    def var_len_fea_lookup_v2(inp, pad_val, fea_num=1, lookup_table=None, emb_layer=None):
+        """
+        The only difference from var_len_fea_lookup is mask.shape
+        :param inp: SparseTensor or DenseTensor.
+        :param fea_num:
+        :param lookup_table:
+        :param emb_layer:
+        :param pad_val: pad value of var len
+        :return: tuple: (inp, mask)
+            out: fea_num = 1 -> [b, T, emb_size], fea_num > 1 -> [b, T, fea_num, emb_size]
+            mask: mask.shape = out.shape[:-1]
+        """
         if isinstance(inp, sparse_tensor.SparseTensor):
             inp = tf.sparse.to_dense(inp, default_value=pad_val)
         if fea_num > 1:
-            inp = tf.reshape(inp, shape=[tf.shape(inp)[0], -1, fea_num])
-        mask = tf.cast(tf.not_equal(inp, pad_val), dtype=tf.float32)
-        if len(mask.shape) == 3:
-            mask = tf.reduce_mean(mask, axis=2, keepdims=False)
+            assert inp.shape[-1] % fea_num == 0
+            inp = tf.reshape(inp, shape=[tf.shape(inp)[0], inp.shape[-1] // fea_num, fea_num])
+        mask = tf.cast(tf.not_equal(inp, pad_val), dtype=tf.float32, name="mask")
 
         if lookup_table is not None:
             inp = lookup_table.lookup(inp)
@@ -43,7 +60,8 @@ class FeaProcessor(object):
                 inp = tf.nn.embedding_lookup(emb_layer, inp)
             except:
                 inp = tf.nn.embedding_lookup_hashtable_v2(emb_layer, inp, threshold=50)
-        return inp, mask
+        out = inp
+        return out, mask
 
     @staticmethod
     def fix_len_fea_lookup(inp, lookup_table=None, emb_layer=None):

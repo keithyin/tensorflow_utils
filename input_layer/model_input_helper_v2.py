@@ -296,10 +296,9 @@ class NetInputHelper(object):
         """
         id -> embedding, and then concat different field together.
         iterate `feature_config`, and get corresponding feature tensor in `features`
-        pop field from `features` if you don't want that field present in the input embedding
 
         :param features: tensor dict. the feature part of parsed_example.
-        :param feature_config: feature config
+        :param feature_config: {"fields": [{...}, {...}]}
         :param process_hooks: signature func(InputTensorDesc input_tensor_desc) -> InputTensorDesc
         :param skip_if_not_contain: if the feature_config feature not in the features, Raise error or not
         :return
@@ -316,12 +315,12 @@ class NetInputHelper(object):
             ignored_features = []
             assert len(self._embeddings) > 0, "call build_embeddings first"
             input_tensors = {}
-            # some feature may not go into this function, so we iterator features instead of config[u"feature"][u"fields"]
             # assure the order
             feature_items = sorted(list(features.items()), key=lambda x: x[0])
             feature_items = [(feature_name, ori_feature)
-                             for feature_name, ori_feature in feature_items if feature_name not in ("dimensions", u"dp")]
-            feature_cfg_fields = sorted(feature_config[u'fields'], key=lambda x: x[u"name"])
+                             for feature_name, ori_feature in feature_items if
+                             feature_name not in ("dimensions", u"dp")]
+            feature_cfg_fields = feature_config[u'fields']
             tf.logging.info("build_input_emb.feature_items: {}".format(feature_items))
             tf.logging.info("build_input_emb.feature_config: {}".format(feature_cfg_fields))
             for field_cfg in feature_cfg_fields:
@@ -331,7 +330,7 @@ class NetInputHelper(object):
                     continue
                 parents = field_cfg.parents
 
-                # **************** process origin feature tensor ****************
+                # **************** Stage1: process origin feature tensor ****************
                 if parents is None:  # if not cross feature
                     if field_cfg.field_name not in features:
                         if skip_if_not_contain:
@@ -365,10 +364,9 @@ class NetInputHelper(object):
                         cross_feature_tensors.append(features[p.feature_name_idx])
                     ori_feature_tensor = cross_feature_tensors
                     feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed(cross_feature_tensors))
-
                 # **************** process origin feature tensor DONE ****************
 
-                # **************** lookup embedding matrix ***************************
+                # **************** Stage2: lookup embedding matrix ***************************
                 emb_group_name = field_cfg.emb_group_name
                 print("emb_group_name: {}".format(emb_group_name))
                 if emb_group_name is not None:
@@ -392,7 +390,8 @@ class NetInputHelper(object):
                                 pad_val=field_cfg.pad_val)
 
                             feature_tensor = tf.reshape(
-                                feature_tensor, shape=[-1, np.prod(feature_tensor.shape[1:])], name=field_cfg.field_name)
+                                feature_tensor, shape=[-1, np.prod(feature_tensor.shape[1:])],
+                                name=field_cfg.field_name)
                             feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=None)
                         else:  # not do mean pooling
                             feature_tensor, mask = input_layer_utils.FeaProcessor.var_len_fea_lookup(
@@ -439,6 +438,143 @@ class NetInputHelper(object):
             inp = NetInputHelper.organize_input_emb_with_feature_group(
                 input_embs=input_tensors, feature_config=feature_config)
             tf.logging.info("build_input_emb={}".format(inp))
+            return inp
+
+    def build_model_input_v2(self, features, feature_config, process_hooks=None, skip_if_not_contain=False):
+        """
+        id -> embedding, and then concat different field together.
+        iterate `feature_config`, and get corresponding feature tensor in `features`
+        difference from build_model_input: using stage1_output to do cross feature
+        :param features: tensor dict. the feature part of parsed_example.
+        :param feature_config: {"fields": [{...}, {...}]}
+        :param process_hooks: signature func(InputTensorDesc input_tensor_desc) -> InputTensorDesc
+        :param skip_if_not_contain: if the feature_config feature not in the features, Raise error or not
+        :return
+            dict of concatenate tower embedding. if the tower is sequence feature result[tower] got (feature, mask) pair
+            for example:
+            {
+                "profile": tensor,
+                "sku_click_activity": (tensor, mask)
+            }
+        """
+        with tf.name_scope(name=None, default_name="build_model_input"):
+            features, feature_cfg_fields = NetInputHelper.preprocess_features_and_feature_cfg(
+                features, feature_config, skip_if_not_contain)
+
+            assert len(self._embeddings) > 0, "call build_embeddings first"
+            input_tensors = {}
+            # assure the order
+
+            # **************** Stage1: process boundaries, hash ****************
+            stage1_process_results = {}
+            for field_cfg in feature_cfg_fields:
+                if field_cfg.parents is None:  # if not cross feature
+                    ori_feature_tensor = features[field_cfg.field_name]
+                    # ignore the skipped dims
+                    feature_tensor = NetInputHelper.get_input_fea_of_interest(field_cfg, ori_feature_tensor)
+                    if field_cfg.boundaries is not None:
+                        feature_tensor = gen_math_ops.bucketize(feature_tensor, field_cfg.boundaries,
+                                                                name="bucketize_{}".format(field_cfg.field_name))
+                        feature_tensor = tf.cast(feature_tensor, dtype=tf.int64)
+                    if field_cfg.do_hash:
+                        feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed([feature_tensor]))
+                    stage1_process_results[field_cfg.field_name] = feature_tensor
+            tf.logging.info("build_input_emb.stage1_process_results = ***********{}********".format(
+                utils.dict_or_list_2_tuple_2_str(stage1_process_results)))
+            # **************** Stage2: process cross feature ****************
+            stage2_process_results = {}
+            for field_cfg in feature_cfg_fields:
+                if field_cfg.parents is None:
+                    continue
+                assert field_cfg.emb_group_name is not None, "cross features must use embedding"
+
+                cross_feature_tensors = []
+                for p in field_cfg.parents:
+                    assert p.feature_name in stage1_process_results, """
+                            make sure that {} has been processed at stage1
+                    """.format(p.feature_name)
+                    cross_feature_tensors.append(
+                        stage1_process_results[p.feature_name][:, p.feature_idx: p.feature_idx + 1]
+                        if p.feature_idx is not None else
+                        stage1_process_results[p.feature_name])
+
+                feature_tensor = tf.sparse_tensor_to_dense(tf.sparse.cross_hashed(cross_feature_tensors))
+                stage2_process_results[field_cfg.field_name] = feature_tensor
+
+            tf.logging.info("build_input_emb.stage2_process_results = ***********{}********".format(
+                utils.dict_or_list_2_tuple_2_str(stage2_process_results)))
+            # **************** Stage3: embedding lookup ***************************
+            stage3_process_input = stage1_process_results.copy()
+            stage3_process_input.update(stage2_process_results)
+            stage3_process_results = {}
+            for field_cfg in feature_cfg_fields:
+                emb_group_name = field_cfg.emb_group_name
+                print("emb_group_name: {}".format(emb_group_name))
+                feature_tensor = stage3_process_input[field_cfg.field_name]
+                if emb_group_name is None:
+                    feature_tensor = InputTensorDesc(stage3_process_input[field_cfg.field_name], mask=None)
+                else:
+                    assert emb_group_name in self._embeddings.keys(), """
+                        emb_group: '{}' not found in embedding settings""".format(emb_group_name)
+
+                    emb_group = self.get_emb_group_cfg_by_name(emb_group_name)
+
+                    if emb_group.num_fea_values is not None:
+                        feature_tensor = feature_tensor % emb_group.num_fea_values
+
+                    emb_layer = self._embeddings.get(emb_group_name)
+                    if field_cfg.var_len_field:
+                        if field_cfg.mean_pooling:
+                            feature_tensor = input_layer_utils.FeaProcessor.var_len_fea_process(
+                                feature_tensor,
+                                fea_num=field_cfg.num_sub_field_after_skip,
+                                lookup_table=None,
+                                emb_layer=emb_layer,
+                                pad_val=field_cfg.pad_val)
+
+                            feature_tensor = tf.reshape(
+                                feature_tensor, shape=[-1, np.prod(feature_tensor.shape[1:])],
+                                name=field_cfg.field_name)
+                            feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=None)
+                        else:  # not do mean pooling
+                            feature_tensor, mask = input_layer_utils.FeaProcessor.var_len_fea_lookup(
+                                feature_tensor,
+                                pad_val=field_cfg.pad_val,
+                                fea_num=field_cfg.num_sub_field_after_skip,
+                                lookup_table=None,
+                                emb_layer=emb_layer)
+                            ft_shape = tf.shape(feature_tensor)
+                            feature_tensor = tf.reshape(
+                                feature_tensor, shape=[ft_shape[0], ft_shape[1], np.prod(feature_tensor.shape[2:])])
+                            feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=mask)
+
+                    else:  # [b, 1] -> [b, emb_size], [b, n] -> [b, n*emb_size]
+                        feature_tensor = input_layer_utils.FeaProcessor.fix_len_fea_process(
+                            feature_tensor,
+                            lookup_table=None,
+                            emb_layer=emb_layer)
+                        feature_tensor = InputTensorDesc(tensor=feature_tensor, mask=None)
+                stage3_process_results[field_cfg.field_name] = feature_tensor
+                # **************** lookup embedding matrix DONE ***************************
+
+            tf.logging.info("build_input_emb.stage3_process_results = ***********{}********".format(
+                utils.dict_or_list_2_tuple_2_str(stage3_process_results)))
+            # **************************** stage4:  post process *************************
+            stage4_process_results = {}
+            for field_name, feature_tensor in stage3_process_results.items():
+                if process_hooks is not None and field_name in process_hooks:
+                    stage4_process_results[field_name] = process_hooks[field_name](feature_tensor)
+                else:
+                    stage4_process_results[field_name] = feature_tensor
+
+            assert len(stage4_process_results) > 0, ""
+
+            tf.logging.info("build_input_emb.stage4_process_results = ***********{}********".format(
+                utils.dict_or_list_2_tuple_2_str(stage4_process_results)))
+
+            inp = NetInputHelper.organize_input_emb_with_feature_group(
+                input_embs=stage4_process_results, feature_config=feature_config)
+            tf.logging.info("build_input_emb.output={}".format(utils.dict_or_list_2_tuple_2_str(inp)))
             return inp
 
     def build_cvm_update_op(self, show_clicks):
@@ -572,6 +708,47 @@ class NetInputHelper(object):
         ori_feature = tf.gather(ori_feature, indices=tf.constant(remained_dims), axis=1)
         return ori_feature
 
+    @staticmethod
+    def preprocess_features_and_feature_cfg(features, feature_config, skip_if_not_contain=True):
+        """
+        preprocess_features_and_feature_cfg
+        Args:
+            features: dict of tensors
+            feature_config: {"fields": [{...}, {...}]}
+            skip_if_not_contain: boolean
+
+        Returns:
+            output_features:
+            out_feature_cfg_fields:
+        """
+        tf.logging.warn("preprocess_features_and_feature_cfg.inp.feature_config = {}".format(
+            utils.dict_or_list_2_tuple_2_str(features)))
+        feature_cfg_fields = [FeatureFieldCfg(field_cfg) for field_cfg in feature_config["fields"]]
+        ignored_field_names = [fea_cfg.field_name for fea_cfg in feature_cfg_fields if fea_cfg.should_ignore is True]
+        tf.logging.warn("ignored field names: {}".format(ignored_field_names))
+        feature_cfg_fields = [fea_cfg for fea_cfg in feature_cfg_fields if fea_cfg.should_ignore is not True]
+
+        not_founded_feature_names = []
+        output_features = {}
+        out_feature_cfg_fields = []
+        for fea_cfg in feature_cfg_fields:
+            if fea_cfg.parents is not None:
+                continue
+            if fea_cfg.field_name not in features:
+                if skip_if_not_contain:
+                    not_founded_feature_names.append(fea_cfg.field_name)
+                    continue
+                else:
+                    raise ValueError("feature_name:{} not found in features: {}".format(
+                        fea_cfg.field_name,
+                        features))
+            out_feature_cfg_fields.append(fea_cfg)
+            output_features[fea_cfg.field_name] = features[fea_cfg.field_name]
+        tf.logging.warn("not founded field names: {}".format(not_founded_feature_names))
+        tf.logging.warn("preprocess_features_and_feature_cfg.output.output_features = {}".format(
+            utils.dict_or_list_2_tuple_2_str(output_features)))
+        return output_features, out_feature_cfg_fields
+
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.DEBUG)
@@ -588,13 +765,13 @@ if __name__ == '__main__':
         "age": tf.constant([[10], [20]], dtype=tf.int64),
         "prices": tf.constant([[2.0], [1.9]], dtype=tf.float32),
         "wm_click_sku_list": tf.constant([[1, 2, 3, 0, 0], [2, 3, 4, 5, 0]], dtype=tf.int64),
-        "wm_click_poi_list": tf.constant([[1, 2, 3, 0, 0], [2, 3, 4, 5, 0]], dtype=tf.int64),
+        # "wm_click_poi_list": tf.constant([[1, 2, 3, 0, 0], [2, 3, 4, 5, 0]], dtype=tf.int64),
     }
     # emb, mask = net_input_helper.build_single_field_var_len_input_emb(
     #     features, input_cfg.get_feature_config())
     # print(emb, mask)
 
-    res = net_input_helper.build_model_input(features, input_cfg.get_feature_config())
+    res = net_input_helper.build_model_input_v2(features, input_cfg.get_feature_config(), skip_if_not_contain=True)
     print(res)
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
