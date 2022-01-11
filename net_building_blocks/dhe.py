@@ -54,7 +54,7 @@ def dhe(x, k=1024, m=1e6):
     else:
         raise ValueError("not supported tensor shape")
     encod = tf.mod(tf.mod((a * x + b), p), int(m))
-    encod = (tf.cast(encod, dtype=tf.float32) / float(m) - 0.5) * 2.0
+    encod = (tf.cast(encod, dtype=tf.float32) / float(m - 1) - 0.5) * 2.0
     return encod
 
 
