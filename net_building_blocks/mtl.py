@@ -75,7 +75,8 @@ def mmoe_v2(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
 
 
 # https://dl.acm.org/doi/pdf/10.1145/3219819.3220007   50000iter 9.45
-def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, name_or_scope=None):
+def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes,
+            task_specific_inputs=None, name_or_scope=None):
     """
     mmoe
     Args:
@@ -84,6 +85,7 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
         num_tasks:  int
         expert_hidden_sizes: list of int
         task_specific_hidden_sizes:  list of int
+        task_specific_inputs: concat to task_specific branch. tensor [b, num_task, some_dim]
         name_or_scope:
     Returns:
         (x, gates)
@@ -101,7 +103,8 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
 
         # [n, num_tasks, dim]
         x = tf.einsum("net,ned->ntd", gate, experts)
-
+        if task_specific_inputs is not None:
+            x = tf.concat([x, task_specific_inputs], axis=2)
         # [n, num_tasks, dim]
         x = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks,
                          last_activation=None)
