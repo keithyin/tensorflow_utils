@@ -25,8 +25,9 @@ def mmoe(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_si
             gates: [n, num_task, num_experts]
     """
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="mmoe"):
-        gate_w = tf.get_variable(name="gate_w", shape=[x.shape[1], num_tasks, num_experts],
-                                 initializer=tf.initializers.glorot_normal)
+        gate_w = tf.get_variable(
+            name="gate_w", shape=[x.shape[1], num_tasks, num_experts],
+            initializer=tf.initializers.glorot_normal)
         # n, num_tasks, num_experts
         gate = tf.math.softmax(tf.einsum("ni,ijk->njk", x, gate_w), axis=-1)
 
@@ -58,8 +59,9 @@ def mmoe_v2(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
             gates: [n, num_task, num_experts]
     """
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="mmoe"):
-        gate_w = tf.get_variable(name="gate_w", shape=[x.shape[1], num_tasks, num_experts],
-                                 initializer=tf.initializers.glorot_normal)
+        gate_w = tf.get_variable(
+            name="gate_w", shape=[x.shape[1], num_tasks, num_experts],
+            initializer=tf.initializers.glorot_normal)
         # n, num_tasks, num_experts
         gate = tf.math.softmax(tf.einsum("ni,ijk->njk", x, gate_w), axis=-1)
 
@@ -70,7 +72,9 @@ def mmoe_v2(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
         x = tf.einsum("nte,nde->ndt", gate, experts)
 
         # [n, dim, num_tasks]
-        x = n_experts_v2(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks, last_activation=tf.nn.sigmoid)
+        x = n_experts_v2(
+            x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks,
+            last_activation=tf.nn.sigmoid)
     return x, gate
 
 
@@ -93,8 +97,9 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
             gates: [n, num_tasks, num_experts]
     """
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="mmoe"):
-        gate_w = tf.get_variable(name="gate_w", shape=[num_experts, num_tasks, x.shape[1]],
-                                 initializer=tf.initializers.glorot_normal)
+        gate_w = tf.get_variable(
+            name="gate_w", shape=[num_experts, num_tasks, x.shape[1]],
+            initializer=tf.initializers.glorot_normal)
         # n, num_experts, num_tasks
         gate = tf.math.softmax(tf.einsum("ni,eti->net", x, gate_w), axis=1)
 
@@ -106,8 +111,9 @@ def mmoe_v3(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
         if task_specific_inputs is not None:
             x = tf.concat([x, task_specific_inputs], axis=2)
         # [n, num_tasks, dim]
-        x = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks,
-                         last_activation=None)
+        x = n_experts_v3(
+            x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks,
+            last_activation=None)
         gate = tf.einsum("net->nte", gate)
     return x, gate
 
@@ -126,10 +132,9 @@ def cgc(input_list, num_experts, num_tasks, expert_hidden_sizes, name_or_scope=N
     """
     assert len(input_list) == num_tasks + 1
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="cgc"):
-
         # [n, num_experts, dim]
-        expert_groups = [n_experts_v3(input_list[i], expert_hidden_sizes, num_experts=num_experts)
-                         for i in range(num_tasks + 1)]
+        expert_groups = [
+            n_experts_v3(input_list[i], expert_hidden_sizes, num_experts=num_experts) for i in range(num_tasks + 1)]
         shared_experts = [expert_groups[0]] * num_tasks
         tasks_experts = expert_groups[1:]
 
@@ -139,13 +144,13 @@ def cgc(input_list, num_experts, num_tasks, expert_hidden_sizes, name_or_scope=N
             # [n, 2*num_e, dim]
             e = tf.concat(task_and_shared_experts, axis=1)
             # [n, 2*num_e]
-            gate = layers.dense(input_list[i], units=2*num_experts, use_bias=False, activation=tf.nn.softmax)
+            gate = layers.dense(input_list[i], units=2 * num_experts, use_bias=False, activation=tf.nn.softmax)
             out = tf.einsum("ne,ned->nd", gate, e)
             tasks_outputs.append(out)
 
         # expert_out
         all_experts = tf.concat(expert_groups, axis=1)
-        shared_exp_gates = layers.dense(input_list[0], units=(num_tasks+1) * num_experts,
+        shared_exp_gates = layers.dense(input_list[0], units=(num_tasks + 1) * num_experts,
                                         activation=tf.nn.softmax, use_bias=False)
         expert_output = tf.einsum("ne,ned->nd", shared_exp_gates, all_experts)
     return [expert_output] + tasks_outputs
@@ -155,16 +160,16 @@ def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_siz
     """
 
     Args:
-        x:
-        num_experts:
-        num_tasks:
-        expert_hidden_sizes:
-        task_specific_hidden_sizes:
-        num_cgc_layers:
-        name_or_scope:
+        x: [b, dim]
+        num_experts: int value
+        num_tasks: int value
+        expert_hidden_sizes: list
+        task_specific_hidden_sizes: list
+        num_cgc_layers: int
+        name_or_scope: string
 
     Returns:
-
+        tensor [n, num_tasks]
     """
     x = [x] * (num_tasks + 1)
     with tf.variable_scope(name_or_scope=name_or_scope, default_name="progressive_layered_extraction"):
