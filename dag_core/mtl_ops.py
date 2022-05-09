@@ -21,12 +21,17 @@ class MmoeParam(object):
         pass
 
 
-def mmoe_op(x, param, name_or_scope):
+def mmoe_op(x, param, name_or_scope, task_specific_inputs=None):
     assert isinstance(param, MmoeParam)
     x = tf.concat(x, axis=1)
+    if len(task_specific_inputs) == 1:
+        task_specific_inputs = task_specific_inputs[0]
+    else:
+        task_specific_inputs = tf.stack(task_specific_inputs, axis=1)
     x, gate = mtl.mmoe_v3(
         x=x, num_tasks=param.num_tasks, num_experts=param.num_experts,
         expert_hidden_sizes=param.expert_hidden_sizes,
         task_specific_hidden_sizes=param.task_specific_hidden_sizes,
+        task_specific_inputs=task_specific_inputs,
         name_or_scope=name_or_scope)
     return {name_or_scope: x, "{}_gate".format(name_or_scope): gate}
