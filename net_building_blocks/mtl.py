@@ -131,7 +131,7 @@ def cgc(input_list, num_experts, num_tasks, expert_hidden_sizes, name_or_scope=N
         list of tensors [b, dim].   [expert_output, t0_output, t1_output, ...]
     """
     assert len(input_list) == num_tasks + 1
-    with tf.variable_scope(name_or_scope=name_or_scope, default_name="cgc"):
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="CGC"):
         # [n, num_experts, dim]
         expert_groups = [
             n_experts_v3(input_list[i], expert_hidden_sizes, num_experts=num_experts) for i in range(num_tasks + 1)]
@@ -156,7 +156,8 @@ def cgc(input_list, num_experts, num_tasks, expert_hidden_sizes, name_or_scope=N
     return [expert_output] + tasks_outputs
 
 
-def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, num_cgc_layers, name_or_scope=None):
+def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_sizes, num_cgc_layers,
+        task_specific_inputs=None, name_or_scope=None):
     """
 
     Args:
@@ -166,17 +167,21 @@ def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_siz
         expert_hidden_sizes: list
         task_specific_hidden_sizes: list
         num_cgc_layers: int
+        task_specific_inputs: [b, num_t, dim]
         name_or_scope: string
 
     Returns:
         tensor [n, num_tasks]
     """
     x = [x] * (num_tasks + 1)
-    with tf.variable_scope(name_or_scope=name_or_scope, default_name="progressive_layered_extraction"):
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="PLE"):
         for _ in range(num_cgc_layers):
             x = cgc(x, num_experts, num_tasks, expert_hidden_sizes)
 
+        # [b, num_t, dim]
         x = tf.stack(x[1:], axis=1)
+        if task_specific_inputs is not None:
+            x = tf.concat([x, task_specific_inputs], axis=2)
         logit = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks, last_activation=None)
     logit = tf.squeeze(logit, axis=-1)
     return logit
