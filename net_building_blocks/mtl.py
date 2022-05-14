@@ -183,5 +183,5 @@ def ple(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden_siz
         if task_specific_inputs is not None:
             x = tf.concat([x, task_specific_inputs], axis=2)
         logit = n_experts_v3(x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks, last_activation=None)
-    logit = tf.squeeze(logit, axis=-1)
+        logit = tf.squeeze(logit, axis=-1)
     return logit
