@@ -24,7 +24,7 @@ class MlpParam(object):
         return zip(self.hidden_sizes, self.activation_fns)
 
 
-def mlp_op(x, param, name_or_scope):
+def mlp_op(x, param, name_or_scope, context=None):
     assert isinstance(param, MlpParam)
     with tf.variable_scope(name_or_scope="MLP_{}".format(name_or_scope)):
         assert isinstance(x, list)
