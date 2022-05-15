@@ -27,7 +27,13 @@ def get_seq_feature_mask(feature_name, seq_tensor, seq_fea_mask_tensor_dict, seq
 
 def seq_mean_pooling_op(x, param, name_or_scope, context=None, feat_name_or_names=None):
     """
-
+    {
+        "name": "Output",
+        "op": "seq_mean_pooling",
+        "inputs": {
+            "x": "inpName"
+        }
+    }
     Args:
         x: tensor, [b, T, dim]
         param:

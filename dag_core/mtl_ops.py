@@ -1,6 +1,6 @@
 # coding=utf-8
 import tensorflow as tf
-from ..net_building_blocks import mtl
+from .net_building_blocks import mtl
 
 
 class MmoeParam(object):

@@ -83,7 +83,7 @@ def op_call(context, cfg):
     params = OPS[op_name]["param_class"](params)
 
     op_func = OPS[op_name]["op"]
-    op_kwargs = {"param": params, "name_or_score": out_name, "context": context}
+    op_kwargs = {"param": params, "name_or_scope": out_name, "context": context}
 
     # 这个是当前因为 seq_mean_pooling_op 需要 tensor 的名字，所以这里开了个口子。通过这种方式传过去
     if "feat_name_or_names" in inspect.getargspec(op_func).args:

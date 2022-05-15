@@ -7,7 +7,7 @@ import json
 import tensorflow as tf
 from ..utils import input_layer as input_layer_utils
 from ..utils import utils
-from ..net_building_blocks.cvm import ContinuousValueModel
+from metis.tensorflow_utils.dag_core.net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
 from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg
 from collections import namedtuple

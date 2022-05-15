@@ -1,0 +1,47 @@
+{
+    "dag":[
+        {
+            "name": "UserProfile",
+            "op": "mlp",
+            "params": {
+                "hidden_sizes": [4, 6, 8],
+                "act_fns": ["relu", "relu", "None"],
+                "use_bias": [1, 1, 0]
+            },
+            "inputs": {
+                "x": ["user_id", "user_name"]
+            }
+        },
+        {
+            "name": "ItemProfile",
+            "op": "mlp",
+            "params": {
+                "hidden_sizes": [4, 6, 8],
+                "act_fns": ["relu", "relu", "None"],
+                "use_bias": [1, 1, 0]
+            },
+            "inputs": {
+                "x": ["item_id", "item_name"]
+            }
+        },
+        {
+            "name": "Order",
+            "op": "seq_mean_pooling",
+            "inputs": {
+                "x": "order_seq"
+            }
+        },
+        {
+            "name": "logit",
+            "op": "mlp",
+            "params": {
+                "hidden_sizes": [4, 6, 1],
+                "act_fns": ["relu", "relu", "None"],
+                "use_bias": [1, 1, 0]
+            },
+            "inputs": {
+                "x": ["UserProfile", "ItemProfile"]
+            }
+        }
+    ]
+}

@@ -4,14 +4,12 @@ from __future__ import print_function
 
 import toml
 import tensorflow as tf
-from tensorflow import initializers
 from ..utils import input_layer as input_layer_utils
 from ..utils import utils
 from tensorflow.python import math_ops
-from ..net_building_blocks.cvm import ContinuousValueModel
+from metis.tensorflow_utils.dag_core.net_building_blocks.cvm import ContinuousValueModel
 import numpy as np
-from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg, CrossFeaInfo
-
+from .field_cfg import FeatureFieldCfg, LabelFieldCfg, EmbGroupCfg
 
 """
 Usage:
