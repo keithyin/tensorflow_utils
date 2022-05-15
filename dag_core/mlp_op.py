@@ -1,5 +1,6 @@
 import tensorflow as tf
 from .activation_fn_lookup import get_activation_fn
+from .net_building_blocks import dcn
 
 
 class MlpParam(object):
@@ -37,3 +38,7 @@ def mlp_op(x, param, name_or_scope, context=None):
             x = fn(tf.layers.dense(x, units=hidden_size, use_bias=use_bias))
     return x
 
+
+def dcn_op(x, param, name_or_scope, context=None):
+    x = dcn.dcn_faster(x, num_layers=param["num_layers"], name_or_scope=name_or_scope)
+    return x

@@ -1,7 +1,7 @@
 # coding=utf-8
-from .mlp_op import mlp_op, MlpParam
-from .mtl_ops import mmoe_op, MmoeParam
-from .seq_ops import seq_mean_pooling_op, seq_mean_pooling_group_op
+from .mlp_op import mlp_op, dcn_op, MlpParam
+from .mtl_ops import mmoe_op, ple_op, MmoeParam
+from .seq_ops import seq_mean_pooling_op, seq_mean_pooling_group_op, din_local_activation_op
 import inspect
 
 """
@@ -29,6 +29,9 @@ OP会被定义为一个方法。
 OPS = {
     "mlp": {"op": mlp_op, "param_class": MlpParam},
     "mmoe": {"op": mmoe_op, "param_class": MmoeParam},
+    "ple": {"op": ple_op, "param_class": MmoeParam},
+    "dcn": {"op": dcn_op, "param_class": lambda x: x},
+    "din_local_activation": {"op": din_local_activation_op, "param_class": lambda x: x},
     "seq_mean_pooling": {"op": seq_mean_pooling_op, "param_class": lambda x: x},
     "seq_mean_pooling_group": {"op": seq_mean_pooling_group_op, "param_class": lambda x: x}
 }

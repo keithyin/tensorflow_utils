@@ -1,5 +1,6 @@
 # coding=utf-8
 import tensorflow as tf
+from .net_building_blocks import din_local_activation
 
 
 def get_seq_feature_mask(feature_name, seq_tensor, seq_fea_mask_tensor_dict, seq_fea_len_tensor_dict):
@@ -78,3 +79,32 @@ def seq_mean_pooling_group_op(x, param, name_or_scope, context=None, feat_name_o
         res = tf.concat(res, axis=1)
     return res
 
+
+def din_local_activation_op(x, query, param, name_or_scope, context=None, feat_name_or_names=None):
+    """
+    {
+        "name": "Din",
+        "op": "din_local_activation",
+        "params": {"activation_unit_dim": 16, "affine_dim": 8},
+        "inputs": {"x": "query_seq", "query": "candidate"}
+    }
+    Args:
+        x: [b, t, dim]
+        query: [b, D_q]
+        param: dict
+        name_or_scope: string
+        context: tensor dict
+        feat_name_or_names:
+    Returns:
+        [b, dim]
+    """
+    seq_fea_mask_tensor_dict = context["seq_fea_mask_tensor_dict"]
+    seq_fea_len_tensor_dict = context["seq_fea_len_tensor_dict"]
+    mask = get_seq_feature_mask(
+        feature_name=feat_name_or_names, seq_tensor=x,
+        seq_fea_mask_tensor_dict=seq_fea_mask_tensor_dict, seq_fea_len_tensor_dict=seq_fea_len_tensor_dict)
+    x = din_local_activation.din_local_activation_block(x, mask, query=query,
+                                                        activation_unit_dim=param["activation_unit_dim"],
+                                                        affine_dim=param.get("affine_dim", None),
+                                                        name_or_scope=name_or_scope)
+    return x

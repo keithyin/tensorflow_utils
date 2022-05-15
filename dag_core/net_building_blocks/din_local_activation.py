@@ -4,16 +4,17 @@ import tensorflow as tf
 import numpy as np
 
 
-def din_local_activation_block(seq_feat, mask, query, activation_unit_dim=128, affine_dim=None):
+def din_local_activation_block(seq_feat, mask, query, activation_unit_dim=128, affine_dim=None, name_or_scope=None):
     """
     :param seq_feat: [b, T, sub_field, dim] or [b, T, dim]
     :param mask: [b, T, sub_field] or [b, T]
     :param query: [b, num_sub_field, emb_size] or [b, emb_size]
     :param activation_unit_dim, int value.
     :param affine_dim: int. user_behavior and query to affine_dim
+    :param name_or_scope: string
     :return: [b, some_dim]
     """
-    with tf.variable_scope(name_or_scope=None, default_name="DinLocalActivationBlock"):
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="DinLocalActivationBlock"):
         batch_size = tf.shape(seq_feat)[0]
         time_step = tf.shape(seq_feat)[1]
 

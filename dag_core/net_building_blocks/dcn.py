@@ -26,14 +26,13 @@ def dcn(x, num_layers, name_or_scope=None, reuse=False):
     return x
 
 
-def dcn_faster(x, num_layers, name_or_scope=None, reuse=False):
+def dcn_faster(x, num_layers, name_or_scope=None):
     """
         :param x: 2d tensor, [b, dim]
         :param num_layers: int
         :param name_or_scope: string
-        :param reuse: reuse param or not
         """
-    with tf.variable_scope(name_or_scope=name_or_scope, default_name="DCN", reuse=reuse):
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="DCN"):
         x0 = tf.expand_dims(x, dim=2)
         for i in range(num_layers):
             # [b, n, 1] * [b, 1, n] = [b, n, n]
