@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tensorflow.keras import layers
 
 
 def dcn(x, num_layers, name_or_scope=None, reuse=False):
@@ -14,11 +13,13 @@ def dcn(x, num_layers, name_or_scope=None, reuse=False):
         for i in range(num_layers):
             # [b, n, 1] * [b, 1, n] = [b, n, n]
             b = tf.expand_dims(x, dim=1)
-            w_l = tf.get_variable("w_l_{}".format(i), shape=[1, x.shape[1], 1],
-                                  initializer=tf.initializers.glorot_normal)
+            w_l = tf.get_variable(
+                "w_l_{}".format(i), shape=[1, x.shape[1], 1],
+                initializer=tf.initializers.glorot_normal)
             w_l = tf.tile(w_l, multiples=[tf.shape(x)[0], 1, 1])
-            b_l = tf.get_variable("b_l_{}".format(i), shape=[1, x.shape[1]],
-                                  initializer=tf.initializers.zeros)
+            b_l = tf.get_variable(
+                "b_l_{}".format(i), shape=[1, x.shape[1]],
+                initializer=tf.initializers.zeros)
             # [b, n, 1] * [b, 1, n] = [b, n, n]
             # [b, n, n] * [b, n, 1] = [b, n, 1] --> b, n
             x = tf.squeeze(tf.matmul(tf.matmul(x0, b), w_l), axis=2) + b_l + x
@@ -32,16 +33,18 @@ def dcn_faster(x, num_layers, name_or_scope=None, reuse=False):
         :param name_or_scope: string
         :param reuse: reuse param or not
         """
-    with tf.variable_scope(name_or_scope=name_or_scope, default_name="dcn", reuse=reuse):
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="DCN", reuse=reuse):
         x0 = tf.expand_dims(x, dim=2)
         for i in range(num_layers):
             # [b, n, 1] * [b, 1, n] = [b, n, n]
             b = tf.expand_dims(x, dim=1)
-            w_l = tf.get_variable("w_l_{}".format(i), shape=[1, x.shape[1], 1],
-                                  initializer=tf.initializers.glorot_normal)
+            w_l = tf.get_variable(
+                "w_l_{}".format(i), shape=[1, x.shape[1], 1],
+                initializer=tf.initializers.glorot_normal)
             w_l = tf.tile(w_l, multiples=[tf.shape(x)[0], 1, 1])
-            b_l = tf.get_variable("b_l_{}".format(i), shape=[1, x.shape[1]],
-                                  initializer=tf.initializers.zeros)
+            b_l = tf.get_variable(
+                "b_l_{}".format(i), shape=[1, x.shape[1]],
+                initializer=tf.initializers.zeros)
             # [b, n, 1] * [b, 1, n] = [b, n, n]
             # [b, n, n] * [b, n, 1] = [b, n, 1] --> b, n
             x = tf.squeeze(tf.matmul(x0, tf.matmul(b, w_l)), axis=2) + b_l + x
@@ -56,10 +59,12 @@ def dcn_m(x, num_layers):
     with tf.variable_scope(name_or_scope=None, default_name="dcn_m"):
         x0 = x
         for i in range(num_layers):
-            w_l = tf.get_variable("w_l_{}".format(i), shape=[x0.shape[1], x0.shape[1]],
-                                  initializer=tf.initializers.glorot_normal)
-            b_l = tf.get_variable("b_l_{}".format(i), shape=[1, x0.shape[1]],
-                                  initializer=tf.initializers.zeros)
+            w_l = tf.get_variable(
+                "w_l_{}".format(i), shape=[x0.shape[1], x0.shape[1]],
+                initializer=tf.initializers.glorot_normal)
+            b_l = tf.get_variable(
+                "b_l_{}".format(i), shape=[1, x0.shape[1]],
+                initializer=tf.initializers.zeros)
             # [b, n] * [n, n] -> [b, n]
             x = x0 * (tf.matmul(x, w_l) + b_l) + x
     return x
@@ -79,12 +84,15 @@ def dcn_m_low_rank(x, num_layers, dim):
     with tf.variable_scope(name_or_scope=None, default_name="dcn_m_low_rank_version"):
         x0 = x
         for i in range(num_layers):
-            u_l = tf.get_variable("u_l_{}".format(i), shape=[dim, x.shape[1]],
-                                  initializer=tf.initializers.glorot_normal)
-            v_l = tf.get_variable("v_l_{}".format(i), shape=[x0.shape[1], dim],
-                                  initializer=tf.initializers.glorot_normal)
-            b_l = tf.get_variable("b_l_{}".format(i), shape=[1, x0.shape[1]],
-                                  initializer=tf.initializers.zeros)
+            u_l = tf.get_variable(
+                "u_l_{}".format(i), shape=[dim, x.shape[1]],
+                initializer=tf.initializers.glorot_normal)
+            v_l = tf.get_variable(
+                "v_l_{}".format(i), shape=[x0.shape[1], dim],
+                initializer=tf.initializers.glorot_normal)
+            b_l = tf.get_variable(
+                "b_l_{}".format(i), shape=[1, x0.shape[1]],
+                initializer=tf.initializers.zeros)
             x = x0 * tf.matmul(tf.matmul(x, v_l), u_l) + b_l + x
     return x
 
@@ -109,12 +117,15 @@ def dcn_m_moe(x, num_layers, num_experts, gate_func_units_list=[1], g_func=tf.nn
         for i in range(num_layers):
             experts = []
             for j in range(num_experts):
-                u_l = tf.get_variable("u_l_{}_expert_{}".format(i, j), shape=[dim, x.shape[1]],
-                                      initializer=tf.initializers.glorot_normal)
-                v_l = tf.get_variable("v_l_{}_expert_{}".format(i, j), shape=[x0.shape[1], dim],
-                                      initializer=tf.initializers.glorot_normal)
-                b_l = tf.get_variable("b_l_{}_expert_{}".format(i, j), shape=[1, x0.shape[1]],
-                                      initializer=tf.initializers.zeros)
+                u_l = tf.get_variable(
+                    "u_l_{}_expert_{}".format(i, j), shape=[dim, x.shape[1]],
+                    initializer=tf.initializers.glorot_normal)
+                v_l = tf.get_variable(
+                    "v_l_{}_expert_{}".format(i, j), shape=[x0.shape[1], dim],
+                    initializer=tf.initializers.glorot_normal)
+                b_l = tf.get_variable(
+                    "b_l_{}_expert_{}".format(i, j), shape=[1, x0.shape[1]],
+                    initializer=tf.initializers.zeros)
                 x_ = x0 * g_func(tf.matmul(g_func(tf.matmul(x_l, v_l)), u_l)) + b_l
                 tf.layers.dense(inputs=mlp(x_l, gate_func_units_list[:-1]) * x_,
                                 units=1, activation=tf.sigmoid)
