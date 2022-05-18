@@ -26,7 +26,7 @@ def get_seq_feature_mask(feature_name, seq_tensor, seq_fea_mask_tensor_dict, seq
     return sequence_mask
 
 
-def seq_mean_pooling_op(x, param, name_or_scope, context=None, feat_name_or_names=None):
+def seq_mean_pooling_op(x, param, name_or_scope, context=None, input_names=None):
     """
     {
         "name": "Output",
@@ -40,14 +40,14 @@ def seq_mean_pooling_op(x, param, name_or_scope, context=None, feat_name_or_name
         param:
         name_or_scope: string
         context: dict of tensor
-        feat_name_or_names: string
+        input_names: dict, the value of 'inputs' key. {"x": "inpName"}
     Returns:
 
     """
     with tf.name_scope("SMP_{}".format(name_or_scope)):
         seq_fea_mask_tensor_dict = context["seq_fea_mask_tensor_dict"]
         seq_fea_len_tensor_dict = context["seq_fea_len_tensor_dict"]
-        mask = get_seq_feature_mask(feature_name=feat_name_or_names, seq_tensor=x,
+        mask = get_seq_feature_mask(feature_name=input_names["x"], seq_tensor=x,
                                     seq_fea_mask_tensor_dict=seq_fea_mask_tensor_dict,
                                     seq_fea_len_tensor_dict=seq_fea_len_tensor_dict)
         mask = mask / mask.shape[1].value
@@ -55,7 +55,7 @@ def seq_mean_pooling_op(x, param, name_or_scope, context=None, feat_name_or_name
     return seq_tensor
 
 
-def seq_mean_pooling_group_op(x, param, name_or_scope, context=None, feat_name_or_names=None):
+def seq_mean_pooling_group_op(x, param, name_or_scope, context=None, input_names=None):
     """
         多个序列特征做 mean pooling，然后结果 concat 一起。
         {
@@ -68,19 +68,19 @@ def seq_mean_pooling_group_op(x, param, name_or_scope, context=None, feat_name_o
         param:
         name_or_scope:
         context: dict of tensor
-        feat_name_or_names: list of string
+        input_names: dict, the value of 'inputs' key. {"x": ["seq_a", "seq_b"]}
     Returns:
 
     """
     with tf.name_scope("SMPG_{}".format(name_or_scope)):
         res = []
-        for fea_tensor, fea_name in zip(x, feat_name_or_names):
+        for fea_tensor, fea_name in zip(x, input_names["x"]):
             res.append(seq_mean_pooling_op(fea_tensor, param, name_or_scope, context, fea_name))
         res = tf.concat(res, axis=1)
     return res
 
 
-def din_local_activation_op(x, query, param, name_or_scope, context=None, feat_name_or_names=None):
+def din_local_activation_op(x, query, param, name_or_scope, context=None, input_names=None):
     """
     {
         "name": "Din",
@@ -94,17 +94,21 @@ def din_local_activation_op(x, query, param, name_or_scope, context=None, feat_n
         param: dict
         name_or_scope: string
         context: tensor dict
-        feat_name_or_names:
+        input_names: dict, the value of 'inputs' key. {"x": "query_seq", "query": "candidate"}
     Returns:
         [b, dim]
     """
     seq_fea_mask_tensor_dict = context["seq_fea_mask_tensor_dict"]
     seq_fea_len_tensor_dict = context["seq_fea_len_tensor_dict"]
     mask = get_seq_feature_mask(
-        feature_name=feat_name_or_names, seq_tensor=x,
+        feature_name=input_names["x"], seq_tensor=x,
         seq_fea_mask_tensor_dict=seq_fea_mask_tensor_dict, seq_fea_len_tensor_dict=seq_fea_len_tensor_dict)
     x = din_local_activation.din_local_activation_block(x, mask, query=query,
                                                         activation_unit_dim=param["activation_unit_dim"],
                                                         affine_dim=param.get("affine_dim", None),
                                                         name_or_scope=name_or_scope)
     return x
+
+
+def multi_head_attn_op(x, query, param, name_or_scope, context=None, input_names=None):
+    pass

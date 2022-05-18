@@ -89,8 +89,8 @@ def op_call(context, cfg):
     op_kwargs = {"param": params, "name_or_scope": out_name, "context": context}
 
     # 这个是当前因为 seq_mean_pooling_op 需要 tensor 的名字，所以这里开了个口子。通过这种方式传过去
-    if "feat_name_or_names" in inspect.getargspec(op_func).args:
-        op_kwargs["feat_name_or_names"] = cfg["inputs"]["x"]
+    if "input_names" in inspect.getargspec(op_func).args:
+        op_kwargs["input_names"] = cfg["inputs"]
 
     op_kwargs.update(input_tensors)
 
