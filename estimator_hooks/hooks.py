@@ -171,10 +171,10 @@ class GroupAucHook(session_run_hook.SessionRunHook):
                     "global_step": self._last_global_step,
                     "inner_step": self._inner_step,
                     "tot_ins": int(tot_ins),
-                    "auc": round(group_auc, 4)
+                    "metric": round(group_auc, 4)
                 },
                 "detailed_info": [
-                    {"group": item[0], "ins": int(item[1]), "pct": "{:.4f}%".format(item[2]), "auc": round(item[3], 4)}
+                    {"group": item[0], "ins": int(item[1]), "pct": "{:.4f}%".format(item[2]), "metric": round(item[3], 4)}
                     for item in sorted(detailed_auc_infos, key=lambda x: x[1], reverse=True)
                 ]
             }
