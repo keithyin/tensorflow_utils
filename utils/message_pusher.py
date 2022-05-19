@@ -15,6 +15,8 @@ class HdfsPusher(object):
         pass
 
     def push_text(self, text):
+        if not text.endswith("\n"):
+            text = text + "\n"
         o_filename = os.path.join(self._root_dir, "{prefix}_{job_name}_{task_index}".format(
             prefix=self._prefix, job_name=self._job_name, task_index=self._task_index))
 
