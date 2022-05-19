@@ -17,8 +17,7 @@ def print_distribution_dict(dist_dict):
 
 
 class LabelDistHook(session_run_hook.SessionRunHook):
-    def __init__(self, name, label_tensor, mask_tensor, log_step=1e8, reset_step=None,
-                 message_pusher=None):
+    def __init__(self, name, label_tensor, mask_tensor, log_step=1e8, reset_step=None, message_pusher=None):
         assert len(label_tensor.shape) == len(mask_tensor.shape), "label_tensor.shape={}, mask.shape={}".format(
             label_tensor.shape, mask_tensor.shape)
 
@@ -124,9 +123,10 @@ class GroupAucHook(session_run_hook.SessionRunHook):
         return session_run_hook.SessionRunArgs(
             fetches=[self._group_tensor, self._label_tensor, self._pred_tensor, self._global_step])
 
-    def after_run(self,
-                  run_context,  # pylint: disable=unused-argument
-                  run_values):
+    def after_run(
+            self,
+            run_context,  # pylint: disable=unused-argument
+            run_values):
         group, label, pred, global_step = run_values.results
         self._last_global_step = global_step
         group = group.flatten()
@@ -161,8 +161,7 @@ class GroupAucHook(session_run_hook.SessionRunHook):
                 this_group_auc = auc.Compute()
                 group_auc += proportional * this_group_auc
 
-                detailed_auc_infos.append([group_name,
-                                           auc.GetNumIns(), proportional * 100, this_group_auc])
+                detailed_auc_infos.append([group_name, auc.GetNumIns(), proportional * 100, this_group_auc])
 
             info = """GroupAucInfo: {}, 
             \r global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}
@@ -216,8 +215,7 @@ class Auc(object):
 
         predicts = self._num_buckets * predicts
         buckets = np.round(predicts).astype(np.int)
-        buckets = np.where(buckets < self._num_buckets,
-                           buckets, self._num_buckets - 1)
+        buckets = np.where(buckets < self._num_buckets, buckets, self._num_buckets - 1)
 
         for i in range(len(labels)):
             self._table[labels[i], buckets[i]] += 1
@@ -257,15 +255,12 @@ class RegressionGroupInfo(object):
 
     def update(self, pred, label):
         """
-
         Args:
             pred: 1d-ndarray
             label:  1d-ndarray
-
         Returns:
-
         """
-        point_wise_bias = label - pred
+        point_wise_bias = pred - label
         self.num_ins += len(label)
         self.tot_bias += np.sum(point_wise_bias)
         self.tot_mae += np.sum(np.abs(point_wise_bias))
@@ -285,15 +280,13 @@ class RegressionGroupInfo(object):
         """
         Args:
             all_group_ins:
-
         Returns:
-
         """
         self.pct = float(self.num_ins) / float(all_group_ins)
 
     def to_str(self):
         assert self.pct is not None, "call compute_pcr first"
-        fmt = "group: {}, ins: {}, pct: {:.3f}%, bias: {:.3f}, mae: {:.3f}, mse: {:.3f}, pred: {:.3f}, target: {:.3f}\n"
+        fmt = "group: {}, ins: {}, pct: {:.5f}%, bias: {:.5f}, mae: {:.5f}, mse: {:.5f}, pred: {:.5f}, target: {:.5f}\n"
         num_ins = float(self.num_ins)
         res_str = fmt.format(self.group_name, self.num_ins, self.pct * 100.,
                              self.tot_bias / num_ins, self.tot_mae / num_ins,
@@ -387,7 +380,7 @@ class RegressionHook(session_run_hook.SessionRunHook):
 
             tot_ins = float(tot_ins)
             info = """RegressionMetrics: {}, 
-            \r   global_step: {}, inner_step: {}, tot_ins: {}, mean_bias: {:.3f}, mean_mae: {:.3f}, mean_mse: {:.3f},
+            \r   global_step: {}, inner_step: {}, tot_ins: {}, mean_bias: {:.5f}, mean_mae: {:.5f}, mean_mse: {:.5f},
             \r              mean_pred: {:.5f}, mean_target: {:.5f}
             \r ------------------------------------------------
             \r""".format(
