@@ -25,7 +25,7 @@ class HdfsPusher(object):
         if not tf.gfile.Exists(self._root_dir):
             raise ValueError("manually create dir [{}] first".format(self._root_dir))
 
-        writer = tf.gfile.Open(o_filename)
+        writer = tf.gfile.Open(o_filename, mode="w")
         writer.write(text)
         writer.close()
         tf.logging.info("write text to [{}] DONE".format(o_filename))
