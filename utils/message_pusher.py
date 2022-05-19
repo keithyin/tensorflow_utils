@@ -23,8 +23,7 @@ class HdfsPusher(object):
             tf.logging.info("delete:[{}]".format(o_filename))
 
         if not tf.gfile.Exists(self._root_dir):
-            tf.gfile.MakeDirs(self._root_dir)
-            tf.logging.info("mkdirs: [{}]".format(self._root_dir))
+            raise ValueError("manually create dir [{}] first".format(self._root_dir))
 
         writer = tf.gfile.Open(o_filename)
         writer.write(text)

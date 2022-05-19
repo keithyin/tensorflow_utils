@@ -1,4 +1,6 @@
 # coding=utf-8
+import json
+
 import tensorflow as tf
 from tensorflow.python.training import session_run_hook
 from collections import Counter
@@ -155,7 +157,6 @@ class GroupAucHook(session_run_hook.SessionRunHook):
 
             group_auc = 0
             detailed_auc_infos = []
-
             for group_name, auc in self._group_aucs.items():
                 proportional = auc.GetNumIns() / tot_ins
                 this_group_auc = auc.Compute()
@@ -163,21 +164,36 @@ class GroupAucHook(session_run_hook.SessionRunHook):
 
                 detailed_auc_infos.append([group_name, auc.GetNumIns(), proportional * 100, this_group_auc])
 
-            info = """GroupAucInfo: {}, 
-            \r global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}
-            \r --------------------------
-            \r""".format(
-                self._name,
-                self._last_global_step,
-                self._inner_step,
-                int(tot_ins),
-                group_auc)
-
-            info_fmt = "group: {}, group_ins: {}, pct: {:.4f}%, auc: {:.4f}\n"
-            detailed_auc_infos = sorted(detailed_auc_infos, key=lambda x: x[1], reverse=True)
-
-            for item in detailed_auc_infos:
-                info += (info_fmt.format(item[0], item[1], item[2], item[3]))
+            info_json = {
+                "name": self._name,
+                "type": "GAuc",
+                "info": {
+                    "global_step": self._last_global_step,
+                    "inner_step": self._inner_step,
+                    "tot_ins": int(tot_ins),
+                    "auc": round(group_auc, 4)
+                },
+                "detailed_info": [
+                    {"group": item[0], "ins": int(item[1]), "pct": "{:.4f}%".format(item[2]), "auc": round(item[3], 4)}
+                    for item in sorted(detailed_auc_infos, key=lambda x: x[1], reverse=True)
+                ]
+            }
+            # info = """GroupAucInfo: {},
+            # \r global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}
+            # \r --------------------------
+            # \r""".format(
+            #     self._name,
+            #     self._last_global_step,
+            #     self._inner_step,
+            #     int(tot_ins),
+            #     group_auc)
+            #
+            # info_fmt = "group: {}, group_ins: {}, pct: {:.4f}%, auc: {:.4f}\n"
+            # detailed_auc_infos = sorted(detailed_auc_infos, key=lambda x: x[1], reverse=True)
+            #
+            # for item in detailed_auc_infos:
+            #     info += (info_fmt.format(item[0], item[1], item[2], item[3]))
+            info = json.dumps(info_json)
             tf.logging.info(info)
 
             if self._message_pusher is not None:

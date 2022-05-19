@@ -159,15 +159,15 @@ if __name__ == '__main__':
                                       start_delay_secs=20,
                                       exporters=exporter, throttle_secs=5)
 
-    for i in range(2):
-        # mnist_classifier.train(train_input_fn, steps=300)
-        # logging_global_step = tf.train.LoggingTensorHook(
-        #     tensors={"show_me_global_step": "global_step"}, every_n_iter=1)
-        # print(mnist_classifier.evaluate(eval_input_fn))
-        for i, v in enumerate(mnist_classifier.predict(eval_input_fn, yield_single_examples=True)):
-            print(v)
-            break
+    # for i in range(2):
+    #     # mnist_classifier.train(train_input_fn, steps=300)
+    #     # logging_global_step = tf.train.LoggingTensorHook(
+    #     #     tensors={"show_me_global_step": "global_step"}, every_n_iter=1)
+    #     # print(mnist_classifier.evaluate(eval_input_fn))
+    #     for i, v in enumerate(mnist_classifier.predict(eval_input_fn, yield_single_examples=True)):
+    #         print(v)
+    #         break
     #
     # mnist_classifier.export_saved_model()
 
-    # tf.estimator.train_and_evaluate(estimator=mnist_classifier, train_spec=train_spec, eval_spec=eval_spec)
+    tf.estimator.train_and_evaluate(estimator=mnist_classifier, train_spec=train_spec, eval_spec=eval_spec)
