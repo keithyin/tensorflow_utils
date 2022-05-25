@@ -27,3 +27,20 @@ def inverse_gaussian_nll_loss(lam, mu, label):
     mu = tf.clip_by_value(mu, clip_value_min=1e-6, clip_value_max=1e6)
     return 0.5 * (lam * tf.square(label - mu) / (tf.square(mu) * label)
                   + tf.log(2 * np.pi * tf.pow(label, 3.) - tf.log(lam)))
+
+
+def focal_loss_binary(label, pred, gamma=2.0):
+    """
+
+    Args:
+        label: 0/1 label
+        pred: (0~1) score
+        gamma:
+    Returns:
+
+    """
+    with tf.name_scope("FocalLoss"):
+        p = label * pred + (1-label) * (1-pred)
+        p = tf.clip_by_value(p, clip_value_min=1e-6, clip_value_max=1-1e-6)
+        loss = tf.reduce_mean(-(1-p)**gamma * tf.log(p))
+    return loss
