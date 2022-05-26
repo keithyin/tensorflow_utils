@@ -19,7 +19,7 @@ def print_distribution_dict(dist_dict):
 
 
 class LabelDistHook(session_run_hook.SessionRunHook):
-    def __init__(self, name, label_tensor, mask_tensor, log_step=1e8, reset_step=None, message_pusher=None):
+    def __init__(self, name, label_tensor, mask_tensor, log_step=None, reset_step=None, message_pusher=None):
         assert len(label_tensor.shape) == len(mask_tensor.shape), "label_tensor.shape={}, mask.shape={}".format(
             label_tensor.shape, mask_tensor.shape)
 
@@ -71,7 +71,7 @@ class LabelDistHook(session_run_hook.SessionRunHook):
         self._log(force_print=True)
 
     def _log(self, force_print=False):
-        if self._inner_step % self._log_step == 0 or force_print:
+        if (self._log_step is not None, self._inner_step % self._log_step == 0) or force_print:
             tot_count = float(sum(self._counter.values()))
             label_dist = {}
             if tot_count > 0:
@@ -87,7 +87,7 @@ class LabelDistHook(session_run_hook.SessionRunHook):
 
 class GroupAucHook(session_run_hook.SessionRunHook):
     def __init__(self, name, group_tensor, label_tensor, pred_tensor,
-                 log_step=1e8, num_buckets=10240, reset_step=None, message_pusher=None):
+                 log_step=None, num_buckets=10240, reset_step=None, message_pusher=None):
 
         tf.logging.debug("GroupAucHook, name: {}, group_tensor: {}, label_tensor: {}, pred_tensor: {}".format(
             name, group_tensor, label_tensor, pred_tensor
@@ -149,7 +149,7 @@ class GroupAucHook(session_run_hook.SessionRunHook):
         self._log(force_print=True)
 
     def _log(self, force_print=False):
-        if self._inner_step % self._log_step == 0 or force_print:
+        if (self._log_step is not None and self._inner_step % self._log_step == 0) or force_print:
             tot_ins = 0
             for group_name, auc in self._group_aucs.items():
                 tot_ins += auc.GetNumIns()
@@ -311,7 +311,7 @@ class RegressionGroupInfo(object):
 
 
 class RegressionHook(session_run_hook.SessionRunHook):
-    def __init__(self, name, group_tensor, label_tensor, pred_tensor, mask_tensor, log_step=1e8, reset_step=None,
+    def __init__(self, name, group_tensor, label_tensor, pred_tensor, mask_tensor, log_step=None, reset_step=None,
                  message_pusher=None):
         assert len(label_tensor.shape) == len(mask_tensor.shape), "label_tensor.shape={}, mask.shape={}".format(
             label_tensor.shape, mask_tensor.shape)
@@ -377,7 +377,7 @@ class RegressionHook(session_run_hook.SessionRunHook):
         pass
 
     def _log(self, force_print=False):
-        if self._inner_step % self._log_step == 0 or force_print:
+        if (self._log_step is not None and self._inner_step % self._log_step == 0) or force_print:
             tot_ins = 0
             tot_bias = 0
             tot_mae = 0
@@ -427,7 +427,7 @@ class RegressionHook(session_run_hook.SessionRunHook):
 
 class GroupRSquaredHook(session_run_hook.SessionRunHook):
     def __init__(self, name, group_tensor, label_tensor, pred_tensor, mask_tensor, group_global_mean,
-                 log_step=1e8, reset_step=None, message_pusher=None):
+                 log_step=None, reset_step=None, message_pusher=None):
 
         tf.logging.debug("GroupRSquaredHook, name: {}, group_tensor: {}, label_tensor: {}, pred_tensor: {}".format(
             name, group_tensor, label_tensor, pred_tensor
@@ -492,7 +492,7 @@ class GroupRSquaredHook(session_run_hook.SessionRunHook):
         self._log(force_print=True)
 
     def _log(self, force_print=False):
-        if self._inner_step % self._log_step == 0 or force_print:
+        if (self._log_step is not None and self._inner_step % self._log_step == 0) or force_print:
             tot_ins = 0
             for group_name, r_squared_info in self._group_r_squared.items():
                 tot_ins += r_squared_info.GetNumIns()
