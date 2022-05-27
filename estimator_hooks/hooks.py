@@ -96,7 +96,7 @@ class GroupAucHook(session_run_hook.SessionRunHook):
         assert len(label_tensor.shape) == len(pred_tensor.shape)
         self._global_step = tf.train.get_global_step()
         assert self._global_step is not None, "no global step, no happy"
-
+        self._type = "GAuc"
         self._group_tensor = group_tensor
         self._label_tensor = label_tensor
         self._pred_tensor = pred_tensor
@@ -166,7 +166,7 @@ class GroupAucHook(session_run_hook.SessionRunHook):
 
             info_json = {
                 "name": self._name,
-                "type": "GAuc",
+                "type": self._type,
                 "info": {
                     "global_step": self._last_global_step,
                     "inner_step": self._inner_step,
