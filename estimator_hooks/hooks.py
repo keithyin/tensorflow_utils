@@ -92,8 +92,10 @@ class GroupAucHook(session_run_hook.SessionRunHook):
         tf.logging.debug("GroupAucHook, name: {}, group_tensor: {}, label_tensor: {}, pred_tensor: {}".format(
             name, group_tensor, label_tensor, pred_tensor
         ))
-        assert len(group_tensor.shape) == len(label_tensor.shape)
-        assert len(label_tensor.shape) == len(pred_tensor.shape)
+        assert len(group_tensor.shape) == len(label_tensor.shape), """
+            {}!={}""".format(len(group_tensor.shape), len(label_tensor.shape))
+        assert len(label_tensor.shape) == len(pred_tensor.shape), """
+            {}!={}""".format(len(label_tensor.shape), len(pred_tensor.shape))
         self._global_step = tf.train.get_global_step()
         assert self._global_step is not None, "no global step, no happy"
         self._type = "GAuc"
@@ -178,21 +180,6 @@ class GroupAucHook(session_run_hook.SessionRunHook):
                     for item in sorted(detailed_auc_infos, key=lambda x: x[1], reverse=True)
                 ]
             }
-            # info = """GroupAucInfo: {},
-            # \r global_step: {}, inner_step:{}, tot_ins: {}, GROUP_AUC: {:.4f}
-            # \r --------------------------
-            # \r""".format(
-            #     self._name,
-            #     self._last_global_step,
-            #     self._inner_step,
-            #     int(tot_ins),
-            #     group_auc)
-            #
-            # info_fmt = "group: {}, group_ins: {}, pct: {:.4f}%, auc: {:.4f}\n"
-            # detailed_auc_infos = sorted(detailed_auc_infos, key=lambda x: x[1], reverse=True)
-            #
-            # for item in detailed_auc_infos:
-            #     info += (info_fmt.format(item[0], item[1], item[2], item[3]))
             info = json.dumps(info_json)
             tf.logging.info(info)
 
