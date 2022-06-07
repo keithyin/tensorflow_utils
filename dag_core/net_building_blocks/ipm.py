@@ -24,7 +24,8 @@ def lindisc(X, p, t):
     c = tf.square(2 * p - 1) * 0.25
     f = tf.sign(p - 0.5)
 
-    mmd = tf.reduce_sum(tf.square(p * mean_treated - (1 - p) * mean_control))
+    mmd = tf.reduce_mean(tf.square(p * mean_treated - (1 - p) * mean_control))
+    # mmd = tf.reduce_sum(tf.square(p * mean_treated - (1 - p) * mean_control))
     mmd = f * (p - 0.5) + safe_sqrt(c + mmd)
 
     return mmd
@@ -42,7 +43,8 @@ def mmd2_lin(X, t, p):
     mean_control = tf.reduce_mean(Xc, reduction_indices=0)
     mean_treated = tf.reduce_mean(Xt, reduction_indices=0)
 
-    mmd = tf.reduce_sum(tf.square(2.0 * p * mean_treated - 2.0 * (1.0 - p) * mean_control))
+    mmd = tf.reduce_mean(tf.square(2.0 * p * mean_treated - 2.0 * (1.0 - p) * mean_control))
+    # mmd = tf.reduce_sum(tf.square(2.0 * p * mean_treated - 2.0 * (1.0 - p) * mean_control))
 
     return mmd
 
