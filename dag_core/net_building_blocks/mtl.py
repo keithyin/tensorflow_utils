@@ -1,3 +1,4 @@
+# coding=utf-8
 """
 Multi-Task Learning
 """
@@ -76,6 +77,38 @@ def mmoe_v2(x, num_experts, num_tasks, expert_hidden_sizes, task_specific_hidden
             x, hidden_sizes=task_specific_hidden_sizes, num_experts=num_tasks,
             last_activation=tf.nn.sigmoid)
     return x, gate
+
+
+def mmoe_v3_without_task_spec_net(x, num_experts, num_tasks, expert_hidden_sizes, name_or_scope=None):
+    """
+    没有 task 相关网络的 mmoe
+    Args:
+        x:
+        num_experts:
+        num_tasks:
+        expert_hidden_sizes:
+        name_or_scope:
+
+    Returns:
+        (x, gates)
+            x: [n, num_tasks, dim]
+            gates: [n, num_tasks, num_experts]
+    """
+    with tf.variable_scope(name_or_scope=name_or_scope, default_name="MmoeWithoutTSN"):
+        gate_w = tf.get_variable(
+            name="gate_w", shape=[num_experts, num_tasks, x.shape[1]],
+            initializer=tf.initializers.glorot_normal)
+        # n, num_experts, num_tasks
+        gate = tf.math.softmax(tf.einsum("ni,eti->net", x, gate_w), axis=1)
+
+        # [n, num_experts, dim]
+        experts = n_experts_v3(x, expert_hidden_sizes, num_experts)
+
+        # [n, num_tasks, dim]
+        x = tf.einsum("net,ned->ntd", gate, experts)
+
+        gate = tf.einsum("net->nte", gate)
+        return x, gate
 
 
 # https://dl.acm.org/doi/pdf/10.1145/3219819.3220007   50000iter 9.45
