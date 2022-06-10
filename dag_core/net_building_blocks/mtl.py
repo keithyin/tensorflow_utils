@@ -102,7 +102,7 @@ def mmoe_v3_without_task_spec_net(x, num_experts, num_tasks, expert_hidden_sizes
         gate = tf.math.softmax(tf.einsum("ni,eti->net", x, gate_w), axis=1)
 
         # [n, num_experts, dim]
-        experts = n_experts_v3(x, expert_hidden_sizes, num_experts)
+        experts = n_experts_v3(x, expert_hidden_sizes, num_experts, last_activation=None)
 
         # [n, num_tasks, dim]
         x = tf.einsum("net,ned->ntd", gate, experts)
