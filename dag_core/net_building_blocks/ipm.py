@@ -31,18 +31,27 @@ def lindisc(X, p, t):
 
 
 def mmd2_lin(X, t, p):
-    """ Linear MMD """
+    with tf.name_scope("mmd2_lin"):
+        """ Linear MMD """
+        t = tf.cast(t, dtype=tf.float32)
+        if len(t.shape) == 2:
+            t = tf.squeeze(t, axis=1)
+        treatment_indicator = tf.cast(tf.greater(t, 0.5), dtype=tf.float32)
+        treatment_num = tf.reduce_sum(treatment_indicator) + 1e-6
+        treatment_indicator = treatment_indicator / treatment_num
 
-    it = tf.where(t > 0)[:, 0]
-    ic = tf.where(t < 1)[:, 0]
+        control_indicator = tf.cast(tf.less(t, 0.5), dtype=tf.float32)
+        control_num = tf.reduce_sum(control_indicator) + 1e-6
+        control_indicator = control_indicator / control_num
 
-    Xc = tf.gather(X, ic)
-    Xt = tf.gather(X, it)
+        treatment_mean = tf.einsum("n,nd->d", treatment_indicator, X)
+        control_mean = tf.einsum("n,nd->d", control_indicator, X)
 
-    mean_control = tf.reduce_mean(Xc, reduction_indices=0)
-    mean_treated = tf.reduce_mean(Xt, reduction_indices=0)
-
-    mmd = tf.reduce_sum(tf.square(2.0 * p * mean_treated - 2.0 * (1.0 - p) * mean_control))
+        mmd = tf.reduce_sum(tf.square(2.0 * p * treatment_mean - 2.0 * (1.0 - p) * control_mean))
+        mmd = tf.case({
+            treatment_num > tf.cast(tf.shape(X)[0], dtype=tf.float32): lambda: tf.constant(0.),
+            treatment_num < 1.: lambda: tf.constant(0.)
+        }, default=lambda: mmd, exclusive=True)
 
     return mmd
 
@@ -151,4 +160,3 @@ def wasserstein(X, t, p, lam=10, its=10, sq=False, backpropT=False):
     D = 2 * tf.reduce_sum(E)
 
     return D, Mlam
-
