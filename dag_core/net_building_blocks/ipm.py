@@ -49,7 +49,7 @@ def mmd2_lin(X, t, p):
 
         mmd = tf.reduce_sum(tf.square(2.0 * p * treatment_mean - 2.0 * (1.0 - p) * control_mean))
         mmd = tf.case({
-            treatment_num > tf.cast(tf.shape(X)[0], dtype=tf.float32): lambda: tf.constant(999.),
+            treatment_num > (tf.cast(tf.shape(X)[0], dtype=tf.float32) - 1.0): lambda: tf.constant(999.),
             treatment_num < 1.: lambda: tf.constant(999.)
         }, default=lambda: mmd, exclusive=True)
 
