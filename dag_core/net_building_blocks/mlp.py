@@ -2,15 +2,23 @@ from __future__ import print_function
 import tensorflow as tf
 
 
-def mlp(x, hidden_sizes, activation=tf.nn.relu, last_activation=tf.nn.relu, use_bias=True):
+def mlp(x, hidden_sizes,
+        name_scope=None, variable_scope=None,
+        activation=tf.nn.relu, last_activation=None,
+        use_bias=True, last_use_bias=False,
+        reuse=tf.AUTO_REUSE):
     """
 
     Args:
         x:
         hidden_sizes: list
+        name_scope:
+        variable_scope:
         activation:
         last_activation: activation function of last layer
         use_bias: boolean
+        last_use_bias: boolean
+        reuse
 
     Returns:
 
@@ -18,12 +26,13 @@ def mlp(x, hidden_sizes, activation=tf.nn.relu, last_activation=tf.nn.relu, use_
     if len(hidden_sizes) == 0:
         return x
     assert isinstance(hidden_sizes, list), "hidden_sizes must be list"
-    with tf.variable_scope(name_or_scope=None, default_name="mlp"):
-        for i, units in enumerate(hidden_sizes):
-            if i != (len(hidden_sizes) - 1):
-                x = tf.layers.dense(x, units=units, activation=activation, use_bias=use_bias)
-            else:
-                x = tf.layers.dense(x, units=units, activation=last_activation, use_bias=use_bias)
+    with tf.name_scope(name=name_scope, default_name="MLP"):
+        with tf.variable_scope(name_or_scope=variable_scope, default_name="MLP", reuse=reuse):
+            for i, units in enumerate(hidden_sizes):
+                if i != (len(hidden_sizes) - 1):
+                    x = tf.layers.dense(x, units=units, activation=activation, use_bias=use_bias)
+                else:
+                    x = tf.layers.dense(x, units=units, activation=last_activation, use_bias=last_use_bias)
     return x
 
 
